@@ -83,20 +83,6 @@ Die App benötigt eine **eigene OAuth-Client-ID** von Google, damit Nutzer sich 
 
 446797811667-bsvl8h3srocngu3ka6h2oitig4ocnvvr.apps.googleusercontent.com
 
-{
-    "web": {
-        "client_id": "446797811667-bsvl8h3srocngu3ka6h2oitig4ocnvvr.apps.googleusercontent.com",
-        "project_id": "tkd-trainer-493814",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_secret": "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",
-        "javascript_origins": [
-            "https://muerscho.github.io",
-            "http://localhost:4173"
-        ]
-    }
-}
 
 ### 4.4 In der App eintragen
 
