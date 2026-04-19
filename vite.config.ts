@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
+  base: '/taekwondo-trainer-app/',
   plugins: [
     react(),
     VitePWA({
@@ -18,8 +19,8 @@ export default defineConfig({
         background_color: '#f5f6f8',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: '/taekwondo-trainer-app/',
+        scope: '/taekwondo-trainer-app/',
         icons: [
           { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
           { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
@@ -29,7 +30,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,ico,wasm}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallback: '/index.html',
+        navigateFallback: '/taekwondo-trainer-app/index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,

@@ -39,7 +39,7 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/taekwondo-trainer-app">
       <AppShell>
         <AppRouter />
       </AppShell>
