@@ -127,6 +127,23 @@ export interface TrainingBlock {
   updatedAt: IsoDateTime;
 }
 
+export interface Trainer {
+  id: UUID;
+  name: string;
+  role: string | null;
+  colorHex: string | null;
+  active: boolean;
+  sortOrder: number;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+export interface TrainingUnitTrainer {
+  trainingUnitId: UUID;
+  trainerId: UUID;
+  assignedAt: IsoDateTime;
+}
+
 export interface AttendanceRecord {
   id: UUID;
   trainingUnitId: UUID;

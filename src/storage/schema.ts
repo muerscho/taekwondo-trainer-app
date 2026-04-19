@@ -207,6 +207,25 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 CREATE INDEX IF NOT EXISTS idx_att_unit ON attendance_records(training_unit_id);
 CREATE INDEX IF NOT EXISTS idx_att_athlete ON attendance_records(athlete_id);
 
+CREATE TABLE IF NOT EXISTS trainers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT,
+  color_hex TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS training_unit_trainers (
+  training_unit_id TEXT NOT NULL REFERENCES training_units(id) ON DELETE CASCADE,
+  trainer_id TEXT NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  assigned_at TEXT NOT NULL,
+  PRIMARY KEY(training_unit_id, trainer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_unit_trainers_trainer ON training_unit_trainers(trainer_id);
+
 CREATE TABLE IF NOT EXISTS exams_tournaments (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL CHECK(type IN ('Pruefung','Wettkampf')),

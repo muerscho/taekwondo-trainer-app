@@ -6,7 +6,8 @@ import type {
   LibraryEntry, LibraryStep, LibraryMaterial, LibraryMedia, LibraryTimerConfig, LibraryTimerPhase,
   Termin, TerminPhase, TerminCriterion, TerminAthleteAssignment, TerminTargetBelt,
   AiConfig, AiFunctionToggle, AiRecommendation, UnitStatus, UnitDuration, GroupLevel,
-  LibraryTyp, LibraryNiveau, TerminTyp, GradingEval
+  LibraryTyp, LibraryNiveau, TerminTyp, GradingEval,
+  Trainer, TrainingUnitTrainer
 } from '@/domain/types';
 
 const rowToAthlete = (r: Record<string, unknown>): Athlete => ({
@@ -248,6 +249,42 @@ export const blocksRepo = {
     });
   },
   remove(id: string): void { run('DELETE FROM training_blocks WHERE id=?', [id]); }
+};
+
+export const trainersRepo = {
+  list(activeOnly = false): Trainer[] {
+    const sql = activeOnly
+      ? 'SELECT * FROM trainers WHERE active=1 ORDER BY sort_order, name'
+      : 'SELECT * FROM trainers ORDER BY sort_order, name';
+    return query<any>(sql).map((r) => ({
+      id: r.id, name: r.name, role: r.role, colorHex: r.color_hex,
+      active: !!r.active, sortOrder: r.sort_order,
+      createdAt: r.created_at, updatedAt: r.updated_at
+    }));
+  },
+  get(id: string): Trainer | null { return this.list().find((t) => t.id === id) ?? null; },
+  upsert(t: Partial<Trainer> & { name: string }): Trainer {
+    const id = t.id ?? uuid(); const ts = nowIso();
+    const exists = this.get(id);
+    if (exists) {
+      run(`UPDATE trainers SET name=?, role=?, color_hex=?, active=?, sort_order=?, updated_at=? WHERE id=?`,
+        [t.name, t.role ?? null, t.colorHex ?? null, (t.active ?? exists.active) ? 1 : 0, t.sortOrder ?? exists.sortOrder, ts, id]);
+    } else {
+      run(`INSERT INTO trainers(id,name,role,color_hex,active,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)`,
+        [id, t.name, t.role ?? null, t.colorHex ?? null, (t.active ?? true) ? 1 : 0, t.sortOrder ?? 0, ts, ts]);
+    }
+    return this.get(id)!;
+  },
+  remove(id: string): void { run('DELETE FROM trainers WHERE id=?', [id]); },
+  byUnit(unitId: string): TrainingUnitTrainer[] {
+    return query<any>('SELECT * FROM training_unit_trainers WHERE training_unit_id=?', [unitId])
+      .map((r) => ({ trainingUnitId: r.training_unit_id, trainerId: r.trainer_id, assignedAt: r.assigned_at }));
+  },
+  toggleAssignment(unitId: string, trainerId: string): void {
+    const existing = query<any>('SELECT * FROM training_unit_trainers WHERE training_unit_id=? AND trainer_id=?', [unitId, trainerId])[0];
+    if (existing) run('DELETE FROM training_unit_trainers WHERE training_unit_id=? AND trainer_id=?', [unitId, trainerId]);
+    else run('INSERT INTO training_unit_trainers(training_unit_id,trainer_id,assigned_at) VALUES (?,?,?)', [unitId, trainerId, nowIso()]);
+  }
 };
 
 export const attendanceRepo = {

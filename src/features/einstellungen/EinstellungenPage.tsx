@@ -6,7 +6,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
 import { BeltBadge } from '@/components/ui/BeltBadge';
 import { C, RADII, GROUP_LEVELS } from '@/design/tokens';
-import { useData, focusAreasRepo, beltRanksRepo, groupsRepo, aiConfigRepo } from '@/state/dataStore';
+import { useData, focusAreasRepo, beltRanksRepo, groupsRepo, aiConfigRepo, trainersRepo } from '@/state/dataStore';
 import { encryptApiKey } from '@/security/keyStore';
 import { buildProvider } from '@/ai/factory';
 import { setDriveClientId, getDriveClientId, connectDrive, uploadDbToDrive, downloadDbFromDrive, runDailyArchive, disconnectDrive } from '@/storage/driveSync';
@@ -15,7 +15,7 @@ import { toast } from '@/state/uiStore';
 import { confirmDialog } from '@/components/ui/ConfirmDialog';
 import type { AiFunctionId, AiProvider, GroupLevel } from '@/domain/types';
 
-type Tab = 'schwerpunkte' | 'gurtgrade' | 'gruppen' | 'ki' | 'sync';
+type Tab = 'schwerpunkte' | 'gurtgrade' | 'gruppen' | 'trainer' | 'ki' | 'sync';
 
 export default function EinstellungenPage() {
   const [tab, setTab] = useState<Tab>('schwerpunkte');
@@ -26,6 +26,7 @@ export default function EinstellungenPage() {
           { id: 'schwerpunkte', label: 'Schwerpunkte' },
           { id: 'gurtgrade', label: 'Gurtgrade' },
           { id: 'gruppen', label: 'Gruppen' },
+          { id: 'trainer', label: 'Trainer' },
           { id: 'ki', label: 'KI' },
           { id: 'sync', label: '☁ Cloud-Sync' }
         ]}
@@ -34,9 +35,61 @@ export default function EinstellungenPage() {
       {tab === 'schwerpunkte' && <Schwerpunkte />}
       {tab === 'gurtgrade' && <Gurtgrade />}
       {tab === 'gruppen' && <Gruppen />}
+      {tab === 'trainer' && <Trainer />}
       {tab === 'ki' && <KI />}
       {tab === 'sync' && <Sync />}
     </div>
+  );
+}
+
+function Trainer() {
+  const { trainers, reload } = useData();
+  const [list, setList] = useState(trainers);
+  const update = (i: number, patch: any) => setList((prev) => prev.map((t, idx) => idx === i ? { ...t, ...patch } : t));
+  const add = () => setList([...list, { id: 'new-' + list.length + '-' + Date.now(), name: 'Neuer Trainer', role: null, colorHex: '#1e3a5f', active: true, sortOrder: list.length, createdAt: '', updatedAt: '' }]);
+  const removeLocal = async (idx: number) => {
+    const t = list[idx];
+    if (!t.id.startsWith('new-')) {
+      if (!(await confirmDialog({ title: 'Trainer löschen?', body: 'Der Trainer wird entfernt. Bestehende Zuweisungen zu Einheiten gehen verloren.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
+      trainersRepo.remove(t.id);
+    }
+    setList(list.filter((_, i) => i !== idx));
+    reload('trainers');
+  };
+  const save = () => {
+    list.forEach((t, i) => trainersRepo.upsert({
+      id: t.id.startsWith('new-') ? undefined : t.id,
+      name: t.name, role: t.role, colorHex: t.colorHex, active: t.active, sortOrder: i
+    }));
+    reload('trainers'); toast('Trainer gespeichert');
+  };
+  return (
+    <Card>
+      <p style={{ margin: '0 0 12px', color: C.textMuted, fontSize: 12 }}>
+        Trainer können jeder Trainingseinheit zugeordnet werden (Anwesenheitserfassung → 🧑‍🏫 Trainer). Deaktivierte Trainer werden ausgeblendet, bestehende Zuweisungen bleiben erhalten.
+      </p>
+      {list.length === 0 && <div style={{ color: C.textMuted, textAlign: 'center', padding: 20 }}>Noch keine Trainer angelegt.</div>}
+      {list.map((t, i) => (
+        <div key={t.id} style={{ padding: 10, background: C.bg, borderRadius: RADII.md, marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+            <input type="color" value={t.colorHex ?? '#1e3a5f'} onChange={(e) => update(i, { colorHex: e.target.value })} style={{ width: 36, height: 36, border: 'none', cursor: 'pointer' }} aria-label="Farbe" />
+            <input style={{ ...inputStyle, flex: 1 }} value={t.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Name" />
+          </div>
+          <Field label="Rolle (optional)"><input style={inputStyle} value={t.role ?? ''} onChange={(e) => update(i, { role: e.target.value || null })} placeholder="z. B. Cheftrainer, Assistenz" /></Field>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
+              <input type="checkbox" checked={t.active} onChange={(e) => update(i, { active: e.target.checked })} />
+              Aktiv
+            </label>
+            <button onClick={() => removeLocal(i)} style={{ background: 'transparent', color: C.danger, border: 'none' }}>🗑 Trainer entfernen</button>
+          </div>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button onClick={add} style={{ padding: '8px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>+ Trainer</button>
+        <button onClick={save} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm, marginLeft: 'auto' }}>Speichern</button>
+      </div>
+    </Card>
   );
 }
 

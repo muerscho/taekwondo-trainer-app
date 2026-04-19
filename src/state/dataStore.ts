@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import {
   athletesRepo, groupsRepo, beltRanksRepo, focusAreasRepo, blockCategoriesRepo,
   unitsRepo, blocksRepo, attendanceRepo, libraryRepo, termineRepo, aiConfigRepo,
-  goalsRepo, graduationRepo, statsRepo, recommendationsRepo
+  goalsRepo, graduationRepo, statsRepo, recommendationsRepo, trainersRepo
 } from '@/storage/repos';
 import type {
   Athlete, Group, BeltRank, FocusArea, BlockCategory,
-  TrainingUnit, TrainingBlock, LibraryEntry, Termin, AiConfig, AiFunctionToggle
+  TrainingUnit, LibraryEntry, Termin, AiConfig, AiFunctionToggle, Trainer
 } from '@/domain/types';
 
 interface DataStore {
@@ -19,6 +19,7 @@ interface DataStore {
   units: TrainingUnit[];
   library: LibraryEntry[];
   termine: Termin[];
+  trainers: Trainer[];
   aiConfig: AiConfig | null;
   aiToggles: AiFunctionToggle[];
   loadAll: () => void;
@@ -28,7 +29,7 @@ interface DataStore {
 export const useData = create<DataStore>((set) => ({
   ready: false,
   athletes: [], groups: [], beltRanks: [], focusAreas: [], blockCategories: [],
-  units: [], library: [], termine: [], aiConfig: null, aiToggles: [],
+  units: [], library: [], termine: [], trainers: [], aiConfig: null, aiToggles: [],
   loadAll: () => {
     set({
       athletes: athletesRepo.list(),
@@ -39,6 +40,7 @@ export const useData = create<DataStore>((set) => ({
       units: unitsRepo.list(),
       library: libraryRepo.list(),
       termine: termineRepo.list(),
+      trainers: trainersRepo.list(),
       aiConfig: aiConfigRepo.get(),
       aiToggles: aiConfigRepo.toggles(),
       ready: true
@@ -55,10 +57,11 @@ export const useData = create<DataStore>((set) => ({
       case 'units': set({ units: unitsRepo.list() }); break;
       case 'library': set({ library: libraryRepo.list() }); break;
       case 'termine': set({ termine: termineRepo.list() }); break;
+      case 'trainers': set({ trainers: trainersRepo.list() }); break;
       case 'aiConfig': set({ aiConfig: aiConfigRepo.get() }); break;
       case 'aiToggles': set({ aiToggles: aiConfigRepo.toggles() }); break;
     }
   }
 }));
 
-export { athletesRepo, groupsRepo, beltRanksRepo, focusAreasRepo, blockCategoriesRepo, unitsRepo, blocksRepo, attendanceRepo, libraryRepo, termineRepo, aiConfigRepo, goalsRepo, graduationRepo, statsRepo, recommendationsRepo };
+export { athletesRepo, groupsRepo, beltRanksRepo, focusAreasRepo, blockCategoriesRepo, unitsRepo, blocksRepo, attendanceRepo, libraryRepo, termineRepo, aiConfigRepo, goalsRepo, graduationRepo, statsRepo, recommendationsRepo, trainersRepo };
