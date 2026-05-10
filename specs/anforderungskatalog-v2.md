@@ -140,6 +140,34 @@
 ### A.03.08 – Löschen
 - **A.03.08.01** Einheit löschbar mit Bestätigungsdialog.
 
+### A.03.09 – Einheit durchführen (Handout & Live-Modus)
+
+**Allgemein:**
+- **A.03.09.01** Zwei separate Routen/Komponenten: Handout (Read-only Detail) und Run (Live-Modus).
+- **A.03.09.02** Einstiege: zusätzlicher kleiner ▶-Button auf der Einheitskarte in der Wochenübersicht (Tap auf Karte führt unverändert zum Editor) sowie zwei Buttons im Editor-Header („📋 Handout" und „▶ Starten").
+- **A.03.09.03** Block-Inhalte aus der Bibliothek werden per Live-Lookup über `sourceLibraryEntryId` geladen (kein Snapshot).
+- **A.03.09.04** Custom-Blöcke (`source: 'custom'`) zeigen ausschließlich Titel, Notiz, Dauer, Icon — keine Schritte/Material/Video.
+- **A.03.09.05** Externe Inhalte werden nur als Link dargestellt (kein eingebetteter Player). YouTube ist die einzige unterstützte Videoquelle.
+
+**Handout-Modus (`/planung/einheit/:id/handout`):**
+- **A.03.09.06** Header mit Titel, Datum, Wochentag, Gruppe, Gesamtdauer, Status.
+- **A.03.09.07** Schwerpunkt-Verteilung (Donut/Balken) und Zeitstrahl (`TimelineBlocks`).
+- **A.03.09.08** Aggregierte Materialliste oben („Was du vorbereiten musst") über alle Blöcke deduppliziert.
+- **A.03.09.09** Pro Block: Reihenfolge, Icon, Titel, Dauer, Schwerpunkt-Badge, Notiz, Beschreibung, Schritte, Material, Video-Link.
+- **A.03.09.10** Print-CSS als Nice-to-have, nicht blockend.
+
+**Live-Modus (`/planung/einheit/:id/run`):**
+- **A.03.09.11** Vollflächige View, blendet App-Shell aus; zusätzlicher Toggle für OS-Browser-Fullscreen (`requestFullscreen`).
+- **A.03.09.12** Wake-Lock-API verhindert Bildschirmsperre während des Laufs.
+- **A.03.09.13** Zwei Timer: Gesamttimer (zählt verstrichene Sekunden hoch) und Block-Timer (Countdown von Block-Soll-Dauer; nach 0 zählt rot ins Minus weiter).
+- **A.03.09.14** Aktionen: Pause/Weiter, „Nächster Trainingsabschnitt" (beendet aktuellen Block sofort, Ist-Dauer flüchtig gemerkt), „Zurück" (Plan-Sprung; Block-Timer-Stand bleibt erhalten, Gesamttimer läuft weiter), „Beenden" (Dialog mit Auswahl: durchgeführt / abgebrochen).
+- **A.03.09.15** Anzeige pro Block: Block-Titel + Icon, Kurzbeschreibung, Schritte, Material, Video-Link, Vorschau auf nächsten Block, Fortschritt der Gesamteinheit (z. B. „Block 3/8").
+- **A.03.09.16** Kein akustisches Signal — Phasenwechsel nur visuell.
+- **A.03.09.17** Ist-Zeiten je Block werden nicht persistiert (nur flüchtiger UI-Zustand).
+- **A.03.09.18** Lauf-Zustand wird im `localStorage` gehalten; beim erneuten Öffnen wird ein Hinweis „Laufende Einheit fortsetzen?" angezeigt. Ein expliziter Start (▶) verwirft den alten Zustand und startet die Timer frisch.
+- **A.03.09.19** Beim Beenden mit „durchgeführt" wird der Status der `TrainingUnit` auf `durchgeführt` gesetzt; bei „abgebrochen" bleibt der Status unverändert.
+- **A.03.09.20** Ein Layout für alle Geräteklassen, skaliert; keine Layout-Sonderfälle pro Breakpoint.
+
 ---
 
 ## A.04 – Athletenverwaltung

@@ -68,9 +68,33 @@ export default function EinheitEditorPage() {
     unitsRepo.remove(unit.id); reload('units'); nav('/planung');
   };
 
+  const startRun = () => {
+    try { localStorage.removeItem(`tkd:run:${unit.id}`); } catch { /* ignore */ }
+    nav(`/planung/einheit/${unit.id}/run`);
+  };
+
   return (
     <div style={{ maxWidth: 820, margin: '0 auto' }}>
-      <Link to="/planung" style={{ color: C.textMuted, textDecoration: 'none' }}>← Planung</Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <Link to="/planung" style={{ color: C.textMuted, textDecoration: 'none' }}>← Planung</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link
+            to={`/planung/einheit/${unit.id}/handout`}
+            style={{
+              padding: '8px 14px', background: C.bg, color: C.text,
+              border: `1px solid ${C.border}`, borderRadius: RADII.sm,
+              fontSize: 13, textDecoration: 'none'
+            }}
+          >📋 Handout</Link>
+          <button
+            onClick={startRun}
+            style={{
+              padding: '8px 14px', background: C.primary, color: '#fff',
+              border: 'none', borderRadius: RADII.sm, fontSize: 13, fontWeight: 600, cursor: 'pointer'
+            }}
+          >▶ Starten</button>
+        </div>
+      </div>
 
       <Card style={{ marginTop: 8 }}>
         <h2 style={{ marginTop: 0 }}>Einheit</h2>

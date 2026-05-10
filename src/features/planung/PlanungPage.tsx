@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { SollIstBar } from '@/components/ui/SollIstBar';
 import { TimelineBlocks } from '@/components/ui/TimelineBlocks';
@@ -12,7 +12,15 @@ import type { UnitDuration } from '@/domain/types';
 
 export default function PlanungPage() {
   const { units, groups, reload } = useData();
+  const nav = useNavigate();
   const [showNewFor, setShowNewFor] = useState<string | null>(null);
+
+  const startRun = (e: React.MouseEvent, unitId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { localStorage.removeItem(`tkd:run:${unitId}`); } catch { /* ignore */ }
+    nav(`/planung/einheit/${unitId}/run`);
+  };
 
   const weeks = useMemo(() => {
     const base = new Date(startOfIsoWeek(todayIso()) + 'T00:00:00');
@@ -55,12 +63,25 @@ export default function PlanungPage() {
               return (
                 <Link key={u.id} to={`/planung/einheit/${u.id}`} style={{ display: 'block', marginBottom: 6, textDecoration: 'none', color: 'inherit' }}>
                   <Card style={{ borderLeft: `4px solid ${statusColor}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 700 }}>{u.weekday} {formatDate(u.date, { year: false })} · {g?.name ?? '—'}</div>
                         <div style={{ fontSize: 11, color: C.textMuted }}>{u.durationMinutes} min · {used} min belegt</div>
                       </div>
-                      <div style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: statusColor + '22', color: statusColor }}>{u.status}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button
+                          onClick={(e) => startRun(e, u.id)}
+                          title="Einheit starten"
+                          aria-label="Einheit starten"
+                          style={{
+                            width: 30, height: 30, borderRadius: 999,
+                            background: C.primary, color: '#fff', border: 'none',
+                            fontSize: 12, cursor: 'pointer', display: 'inline-flex',
+                            alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >▶</button>
+                        <div style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: statusColor + '22', color: statusColor }}>{u.status}</div>
+                      </div>
                     </div>
                     <div style={{ marginTop: 8 }}>
                       <TimelineBlocks totalMinutes={u.durationMinutes} segments={unitDist.map((d) => ({ name: d.name, color: d.colorHex, minutes: d.minutes }))} />

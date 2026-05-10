@@ -8,6 +8,8 @@ import { C } from '@/design/tokens';
 const Dashboard = lazy(() => import('@/features/dashboard/DashboardPage'));
 const Planung = lazy(() => import('@/features/planung/PlanungPage'));
 const EinheitEditor = lazy(() => import('@/features/planung/EinheitEditorPage'));
+const EinheitHandout = lazy(() => import('@/features/planung/EinheitHandoutPage'));
+const EinheitRun = lazy(() => import('@/features/planung/EinheitRunPage'));
 const Athleten = lazy(() => import('@/features/athleten/AthletenListePage'));
 const AthletProfil = lazy(() => import('@/features/athleten/AthletProfilPage'));
 const Anwesenheit = lazy(() => import('@/features/anwesenheit/AnwesenheitPage'));
@@ -31,6 +33,8 @@ export function AppRouter() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/planung" element={<Planung />} />
         <Route path="/planung/einheit/:id" element={<EinheitEditor />} />
+        <Route path="/planung/einheit/:id/handout" element={<EinheitHandout />} />
+        <Route path="/planung/einheit/:id/run" element={<EinheitRun />} />
         <Route path="/athleten" element={<Athleten />} />
         <Route path="/athleten/:id" element={<AthletProfil />} />
         <Route path="/anwesenheit" element={<Anwesenheit />} />
