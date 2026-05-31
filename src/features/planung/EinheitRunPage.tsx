@@ -178,13 +178,12 @@ export default function EinheitRunPage() {
     setCurrentIdx(currentIdx - 1);
   };
 
-  const handleEndConfirm = (asDone: boolean) => {
+  const handleEndConfirm = async (asDone: boolean) => {
     if (asDone) {
-      unitsRepo.upsert({
+      await unitsRepo.upsert({
         id: unit.id, date: unit.date, groupId: unit.groupId,
         durationMinutes: unit.durationMinutes, status: 'durchgeführt', title: unit.title
       });
-      reload('units');
       toast('Einheit als durchgeführt markiert');
     } else {
       toast('Einheit abgebrochen');

@@ -110,8 +110,8 @@ function NeuerAthletDialog({ onClose }: { onClose: () => void }) {
         </Field>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
-          <button disabled={!canSave} onClick={() => {
-            athletesRepo.upsert({ name: name.trim(), birthDate: birth, groupId, beltRankId: beltId });
+          <button disabled={!canSave} onClick={async () => {
+            await athletesRepo.upsert({ name: name.trim(), birthDate: birth, groupId, beltRankId: beltId });
             toast('Athlet angelegt');
             onClose();
           }} style={{ padding: '8px 14px', background: canSave ? C.primary : C.borderStrong, color: '#fff', border: 'none', borderRadius: RADII.sm, fontWeight: 600 }}>Speichern</button>

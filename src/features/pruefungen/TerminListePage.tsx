@@ -87,12 +87,12 @@ function NeuerTerminDialog({ onClose }: { onClose: () => void }) {
         <Field label="Ort"><input style={inputStyle} value={location} onChange={(e) => setLocation(e.target.value)} /></Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
-          <button disabled={!canSave} onClick={() => {
-            const t = termineRepo.upsert({ type, label: label.trim(), date, location: location || null });
+          <button disabled={!canSave} onClick={async () => {
+            const t = await termineRepo.upsert({ type, label: label.trim(), date, location: location || null });
             const defaultPhases = type === 'Pruefung'
               ? [{ name: 'Grundlagen', durationWeeks: 4, focusTopic: 'Technik & Poomsae' }, { name: 'Intensiv', durationWeeks: 3, focusTopic: 'Prüfungssimulation' }, { name: 'Tapering', durationWeeks: 1, focusTopic: 'Feinschliff' }]
               : [{ name: 'Aufbau', durationWeeks: 4, focusTopic: 'Kondition' }, { name: 'Intensiv', durationWeeks: 3, focusTopic: 'Sparring' }, { name: 'Tapering', durationWeeks: 1, focusTopic: 'Wettkampf-Simulation' }];
-            termineRepo.setPhases(t.id, defaultPhases);
+            await termineRepo.setPhases(t.id, defaultPhases);
             toast('Termin angelegt');
             onClose();
           }} style={{ padding: '8px 14px', background: canSave ? C.primary : C.borderStrong, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Anlegen</button>

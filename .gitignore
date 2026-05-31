@@ -8,3 +8,7 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Lokale Zugangsdaten – niemals einchecken
+credantials.txt
+credentials.txt

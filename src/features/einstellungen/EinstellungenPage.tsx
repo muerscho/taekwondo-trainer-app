@@ -2,20 +2,16 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { TabBar } from '@/components/ui/TabBar';
 import { Field, inputStyle } from '@/components/ui/Field';
-import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
 import { BeltBadge } from '@/components/ui/BeltBadge';
 import { C, RADII, GROUP_LEVELS } from '@/design/tokens';
-import { useData, focusAreasRepo, beltRanksRepo, groupsRepo, aiConfigRepo, trainersRepo } from '@/state/dataStore';
-import { encryptApiKey } from '@/security/keyStore';
-import { buildProvider } from '@/ai/factory';
-import { setDriveClientId, getDriveClientId, connectDrive, uploadDbToDrive, downloadDbFromDrive, runDailyArchive, disconnectDrive } from '@/storage/driveSync';
-import { lastSyncInfo } from '@/storage/bootstrap';
+import { useData, focusAreasRepo, beltRanksRepo, groupsRepo, trainersRepo } from '@/state/dataStore';
+import { useAuth } from '@/features/auth/authStore';
 import { toast } from '@/state/uiStore';
 import { confirmDialog } from '@/components/ui/ConfirmDialog';
-import type { AiFunctionId, AiProvider, GroupLevel } from '@/domain/types';
+import type { GroupLevel } from '@/domain/types';
 
-type Tab = 'schwerpunkte' | 'gurtgrade' | 'gruppen' | 'trainer' | 'ki' | 'sync';
+type Tab = 'schwerpunkte' | 'gurtgrade' | 'gruppen' | 'trainer' | 'konto';
 
 export default function EinstellungenPage() {
   const [tab, setTab] = useState<Tab>('schwerpunkte');
@@ -27,8 +23,7 @@ export default function EinstellungenPage() {
           { id: 'gurtgrade', label: 'Gurtgrade' },
           { id: 'gruppen', label: 'Gruppen' },
           { id: 'trainer', label: 'Trainer' },
-          { id: 'ki', label: 'KI' },
-          { id: 'sync', label: '☁ Cloud-Sync' }
+          { id: 'konto', label: 'Konto' }
         ]}
         active={tab} onChange={setTab}
       />
@@ -36,9 +31,23 @@ export default function EinstellungenPage() {
       {tab === 'gurtgrade' && <Gurtgrade />}
       {tab === 'gruppen' && <Gruppen />}
       {tab === 'trainer' && <Trainer />}
-      {tab === 'ki' && <KI />}
-      {tab === 'sync' && <Sync />}
+      {tab === 'konto' && <Konto />}
     </div>
+  );
+}
+
+function Konto() {
+  const user = useAuth((s) => s.user);
+  const signOut = useAuth((s) => s.signOut);
+  return (
+    <Card>
+      <h3 style={{ margin: '0 0 10px' }}>Konto</h3>
+      <p style={{ margin: '0 0 6px', fontSize: 13 }}>Angemeldet als <strong>{user?.email ?? '—'}</strong></p>
+      <p style={{ margin: '0 0 14px', color: C.textMuted, fontSize: 12 }}>
+        Alle Daten werden in der gemeinsamen Supabase-Datenbank gespeichert. Jeder angemeldete Trainer sieht und bearbeitet denselben Datenbestand.
+      </p>
+      <button onClick={() => { void signOut(); }} style={{ padding: '8px 14px', background: C.danger + '12', color: C.danger, border: `1px solid ${C.danger}33`, borderRadius: RADII.sm }}>Abmelden</button>
+    </Card>
   );
 }
 
@@ -46,22 +55,22 @@ function Trainer() {
   const { trainers, reload } = useData();
   const [list, setList] = useState(trainers);
   const update = (i: number, patch: any) => setList((prev) => prev.map((t, idx) => idx === i ? { ...t, ...patch } : t));
-  const add = () => setList([...list, { id: 'new-' + list.length + '-' + Date.now(), name: 'Neuer Trainer', role: null, colorHex: '#1e3a5f', active: true, sortOrder: list.length, createdAt: '', updatedAt: '' }]);
+  const add = () => setList([...list, { id: 'new-' + list.length + '-' + Math.round(performance.now()), name: 'Neuer Trainer', role: null, colorHex: '#1e3a5f', active: true, sortOrder: list.length, createdAt: '', updatedAt: '' }]);
   const removeLocal = async (idx: number) => {
     const t = list[idx];
     if (!t.id.startsWith('new-')) {
       if (!(await confirmDialog({ title: 'Trainer löschen?', body: 'Der Trainer wird entfernt. Bestehende Zuweisungen zu Einheiten gehen verloren.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
-      trainersRepo.remove(t.id);
+      await trainersRepo.remove(t.id);
     }
     setList(list.filter((_, i) => i !== idx));
-    reload('trainers');
+    await reload('trainers');
   };
-  const save = () => {
-    list.forEach((t, i) => trainersRepo.upsert({
-      id: t.id.startsWith('new-') ? undefined : t.id,
-      name: t.name, role: t.role, colorHex: t.colorHex, active: t.active, sortOrder: i
-    }));
-    reload('trainers'); toast('Trainer gespeichert');
+  const save = async () => {
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      await trainersRepo.upsert({ id: t.id.startsWith('new-') ? undefined : t.id, name: t.name, role: t.role, colorHex: t.colorHex, active: t.active, sortOrder: i });
+    }
+    toast('Trainer gespeichert');
   };
   return (
     <Card>
@@ -94,7 +103,7 @@ function Trainer() {
 }
 
 function Schwerpunkte() {
-  const { focusAreas, reload } = useData();
+  const { focusAreas } = useData();
   const [list, setList] = useState(focusAreas);
   const sum = list.reduce((s, f) => s + f.weightPercent, 0);
   const over = sum > 100;
@@ -115,8 +124,8 @@ function Schwerpunkte() {
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
             <input type="color" value={f.colorHex} onChange={(e) => update(i, { colorHex: e.target.value })} style={{ width: 36, height: 36, border: 'none' }} />
             <input style={{ ...inputStyle, flex: 1 }} value={f.name} onChange={(e) => update(i, { name: e.target.value })} />
-            <button onClick={() => {
-              focusAreasRepo.remove(f.id); reload('focusAreas');
+            <button onClick={async () => {
+              await focusAreasRepo.remove(f.id);
               setList(list.filter((x) => x.id !== f.id));
             }} style={{ background: 'transparent', color: C.danger, border: 'none' }}>🗑</button>
           </div>
@@ -128,9 +137,12 @@ function Schwerpunkte() {
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <button onClick={() => setList([...list, { id: 'new-' + list.length, name: 'Neu', colorHex: '#6b7280', weightPercent: 0, sortOrder: list.length, isMain: true, createdAt: '', updatedAt: '' }])} style={{ padding: '8px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>+ Schwerpunkt</button>
-        <button onClick={() => {
-          list.forEach((f, i) => focusAreasRepo.upsert({ id: f.id.startsWith('new-') ? undefined : f.id, name: f.name, colorHex: f.colorHex, weightPercent: f.weightPercent, sortOrder: i, isMain: f.isMain }));
-          reload('focusAreas'); toast('Gespeichert');
+        <button onClick={async () => {
+          for (let i = 0; i < list.length; i++) {
+            const f = list[i];
+            await focusAreasRepo.upsert({ id: f.id.startsWith('new-') ? undefined : f.id, name: f.name, colorHex: f.colorHex, weightPercent: f.weightPercent, sortOrder: i, isMain: f.isMain });
+          }
+          toast('Gespeichert');
         }} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm, marginLeft: 'auto' }}>Speichern</button>
       </div>
     </Card>
@@ -138,7 +150,7 @@ function Schwerpunkte() {
 }
 
 function Gurtgrade() {
-  const { beltRanks, reload } = useData();
+  const { beltRanks } = useData();
   const [edit, setEdit] = useState<string | null>(null);
   return (
     <Card>
@@ -152,7 +164,7 @@ function Gurtgrade() {
           <button onClick={() => setEdit(b.id)} style={{ background: 'transparent', border: 'none', color: C.primary }}>Bearbeiten</button>
         </div>
       ))}
-      {edit && <BeltEditDialog id={edit} onClose={() => { setEdit(null); reload('beltRanks'); }} />}
+      {edit && <BeltEditDialog id={edit} onClose={() => setEdit(null)} />}
     </Card>
   );
 }
@@ -180,8 +192,8 @@ function BeltEditDialog({ id, onClose }: { id: string; onClose: () => void }) {
         <Field label="Schriftfarbe (optional)"><input type="color" value={text || '#000000'} onChange={(e) => setText(e.target.value)} style={{ width: 60, height: 40 }} /></Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
-          <button onClick={() => {
-            beltRanksRepo.upsert({ id: belt.id, label, colorName, colorHex: bg, colorBorderHex: border, textColorHex: text || null, sortOrder: belt.sortOrder, isDan: belt.isDan });
+          <button onClick={async () => {
+            await beltRanksRepo.upsert({ id: belt.id, label, colorName, colorHex: bg, colorBorderHex: border, textColorHex: text || null, sortOrder: belt.sortOrder, isDan: belt.isDan });
             toast('Gurtgrad gespeichert'); onClose();
           }} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Speichern</button>
         </div>
@@ -210,150 +222,21 @@ function Gruppen() {
           </div>
           <button onClick={async () => {
             if (!(await confirmDialog({ title: 'Gruppe löschen?', body: 'Falls Athleten zugewiesen sind, wird das Löschen abgelehnt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
-            try { groupsRepo.remove(g.id); reload('groups'); setList(list.filter((x) => x.id !== g.id)); toast('Gruppe gelöscht'); }
+            try { await groupsRepo.remove(g.id); setList(list.filter((x) => x.id !== g.id)); toast('Gruppe gelöscht'); }
             catch { toast('Gruppe ist in Verwendung', 'error'); }
           }} style={{ background: 'transparent', color: C.danger, border: 'none' }}>🗑 Gruppe löschen</button>
         </div>
       ))}
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => setList([...list, { id: 'new-' + list.length, name: 'Neue Gruppe', level: 'Einsteiger', minAge: 0, maxAge: 99, sortOrder: list.length, createdAt: '', updatedAt: '' }])} style={{ padding: '8px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>+ Gruppe</button>
-        <button onClick={() => {
-          list.forEach((g, i) => groupsRepo.upsert({ id: g.id.startsWith('new-') ? undefined : g.id, name: g.name, level: g.level, minAge: g.minAge, maxAge: g.maxAge, sortOrder: i }));
-          reload('groups'); toast('Gespeichert');
+        <button onClick={async () => {
+          for (let i = 0; i < list.length; i++) {
+            const g = list[i];
+            await groupsRepo.upsert({ id: g.id.startsWith('new-') ? undefined : g.id, name: g.name, level: g.level, minAge: g.minAge, maxAge: g.maxAge, sortOrder: i });
+          }
+          await reload('groups'); toast('Gespeichert');
         }} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm, marginLeft: 'auto' }}>Speichern</button>
       </div>
     </Card>
-  );
-}
-
-function KI() {
-  const { aiConfig, aiToggles, reload } = useData();
-  const [provider, setProvider] = useState<AiProvider>(aiConfig?.provider ?? 'Claude');
-  const [model, setModel] = useState(aiConfig?.model ?? 'claude-sonnet-4-6');
-  const [apiKey, setApiKey] = useState('');
-  const [customEp, setCustomEp] = useState(aiConfig?.customEndpointUrl ?? '');
-  const [show, setShow] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
-
-  const models: Record<AiProvider, string[]> = {
-    Claude: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
-    OpenAI: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
-    Custom: ['custom-model']
-  };
-
-  const save = async () => {
-    let cipher = aiConfig?.apiKeyCipher ?? null, iv = aiConfig?.apiKeyIv ?? null;
-    if (apiKey) { const enc = await encryptApiKey(apiKey); cipher = enc.cipher; iv = enc.iv; }
-    aiConfigRepo.update({ provider, model, apiKeyCipher: cipher, apiKeyIv: iv, customEndpointUrl: customEp || null });
-    reload('aiConfig'); setApiKey(''); toast('Konfiguration gespeichert');
-  };
-
-  const test = async () => {
-    setTesting(true); setTestResult(null);
-    try {
-      let tmp = aiConfig;
-      if (apiKey) { const enc = await encryptApiKey(apiKey); aiConfigRepo.update({ provider, model, apiKeyCipher: enc.cipher, apiKeyIv: enc.iv, customEndpointUrl: customEp || null }); tmp = aiConfigRepo.get(); }
-      const p = await buildProvider(tmp!);
-      if (!p) throw new Error('Kein API-Key');
-      const r = await p.testConnection();
-      setTestResult({ ok: r.ok, msg: r.ok ? 'Verbindung erfolgreich' : (r.error ?? 'Fehler') });
-      aiConfigRepo.update({ lastConnectionTestAt: new Date().toISOString(), lastConnectionTestStatus: r.ok ? 'success' : 'error', lastConnectionTestError: r.ok ? null : r.error ?? null });
-      reload('aiConfig');
-    } catch (e) { setTestResult({ ok: false, msg: (e as Error).message }); }
-    finally { setTesting(false); }
-  };
-
-  const fnLabels: Record<AiFunctionId, string> = {
-    einheit: 'Einheitsvorschläge', phasenplan: 'Phasenplan-Generierung', dashboard: 'Dashboard-Empfehlung',
-    progress: 'Progressionsempfehlung', variation: 'Variationslogik', bibliothek: 'Bibliotheksvorschläge'
-  };
-
-  return (
-    <>
-      <Card>
-        <Field label="Provider">
-          <select style={inputStyle} value={provider} onChange={(e) => setProvider(e.target.value as AiProvider)}>
-            <option>Claude</option><option>OpenAI</option><option>Custom</option>
-          </select>
-        </Field>
-        <Field label="Modell">
-          <select style={inputStyle} value={model} onChange={(e) => setModel(e.target.value)}>
-            {models[provider].map((m) => <option key={m}>{m}</option>)}
-          </select>
-        </Field>
-        {provider === 'Custom' && <Field label="Base-URL"><input style={inputStyle} value={customEp} onChange={(e) => setCustomEp(e.target.value)} placeholder="https://..." /></Field>}
-        <Field label={apiKey || !aiConfig?.apiKeyCipher ? 'API-Key' : 'API-Key (gespeichert, zum Ändern neu eingeben)'} hint="🔒 Verschlüsselt auf diesem Gerät gespeichert, nie im Klartext übertragen.">
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input style={{ ...inputStyle, flex: 1 }} type={show ? 'text' : 'password'} value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={aiConfig?.apiKeyCipher ? '••••••••' : 'sk-...'} />
-            <button onClick={() => setShow(!show)} aria-label="Sichtbarkeit" style={{ padding: '0 12px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>{show ? '🙈' : '👁'}</button>
-          </div>
-        </Field>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button onClick={test} disabled={testing} style={{ padding: '8px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>{testing ? '⏳ Teste …' : '🔌 Verbindung testen'}</button>
-          <button onClick={save} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm, marginLeft: 'auto' }}>Speichern</button>
-        </div>
-        {testResult && <div style={{ marginTop: 10, padding: 10, background: testResult.ok ? C.success + '22' : C.danger + '22', color: testResult.ok ? C.success : C.danger, borderRadius: RADII.sm, fontSize: 12 }}>{testResult.msg}</div>}
-      </Card>
-      <Card style={{ marginTop: 10 }}>
-        <h3 style={{ margin: '0 0 10px' }}>KI-Funktionen</h3>
-        {aiToggles.map((t) => (
-          <div key={t.functionId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontSize: 13 }}>{fnLabels[t.functionId] ?? t.functionId}</span>
-            <button onClick={() => { aiConfigRepo.setToggle(t.functionId, !t.enabled); reload('aiToggles'); }} style={{ width: 46, height: 26, borderRadius: 999, border: 'none', background: t.enabled ? C.success : C.borderStrong, position: 'relative' }}>
-              <span style={{ position: 'absolute', top: 2, left: t.enabled ? 22 : 2, width: 22, height: 22, borderRadius: 999, background: '#fff', transition: 'left 200ms' }} />
-            </button>
-          </div>
-        ))}
-      </Card>
-    </>
-  );
-}
-
-function Sync() {
-  const [clientId, setClientId] = useState(getDriveClientId() ?? '');
-  const [busy, setBusy] = useState(false);
-  const info = lastSyncInfo();
-
-  const doSave = () => { setDriveClientId(clientId); toast('Client-ID gespeichert'); };
-  const doConnect = async () => { setBusy(true); try { await connectDrive(true); toast('Verbunden'); } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); } };
-  const doUpload = async () => { setBusy(true); try { await uploadDbToDrive(); toast('Sicherung hochgeladen'); } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); } };
-  const doDownload = async () => {
-    if (!(await confirmDialog({ title: 'Aus Google Drive laden?', body: 'Die lokale Datenbank wird durch die Drive-Version ersetzt.', tone: 'danger', confirmLabel: 'Laden' }))) return;
-    setBusy(true); try { const ok = await downloadDbFromDrive(); toast(ok ? 'Geladen — Seite neu laden' : 'Keine Sicherung gefunden'); if (ok) setTimeout(() => location.reload(), 1000); } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
-  };
-  const doArchive = async () => { setBusy(true); try { const r = await runDailyArchive(); toast(r.created ? `Archiv angelegt: ${r.fileName}` : 'Archiv ist bereits aktuell'); } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); } };
-
-  return (
-    <>
-      <Card>
-        <h3 style={{ margin: '0 0 8px' }}>Google Drive verbinden</h3>
-        <p style={{ margin: '0 0 10px', color: C.textMuted, fontSize: 12 }}>
-          Die App speichert eine verschlüsselbare SQLite-Sicherung in deinem Google Drive (Scope: <code>drive.file</code>, nur App-Dateien). Für die OAuth-Verbindung wird eine Client-ID aus einem Google-Cloud-Projekt benötigt (siehe Installationsanleitung).
-        </p>
-        <Field label="Google OAuth Client-ID">
-          <input style={inputStyle} value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="…apps.googleusercontent.com" />
-        </Field>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={doSave} style={{ padding: '8px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>Client-ID speichern</button>
-          <button onClick={doConnect} disabled={busy || !clientId} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>🔗 Verbinden</button>
-          <button onClick={() => { disconnectDrive(); toast('Getrennt'); }} style={{ padding: '8px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm }}>Trennen</button>
-        </div>
-      </Card>
-      <Card style={{ marginTop: 10 }}>
-        <h3 style={{ margin: '0 0 10px' }}>Aktionen</h3>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button disabled={busy} onClick={doUpload} style={{ padding: '8px 14px', background: C.success, color: '#fff', border: 'none', borderRadius: RADII.sm }}>⬆ Jetzt sichern</button>
-          <button disabled={busy} onClick={doDownload} style={{ padding: '8px 14px', background: C.warn, color: '#fff', border: 'none', borderRadius: RADII.sm }}>⬇ Aus Drive laden</button>
-          <button disabled={busy} onClick={doArchive} style={{ padding: '8px 14px', background: C.info, color: '#fff', border: 'none', borderRadius: RADII.sm }}>📦 Tagesarchiv anlegen</button>
-        </div>
-        <div style={{ marginTop: 14, fontSize: 12, color: C.textMuted }}>
-          <div>Letzter Upload: {info.lastUploadAt ?? '—'}</div>
-          <div>Letzter Download: {info.lastDownloadAt ?? '—'}</div>
-          <div>Letztes Tagesarchiv: {info.lastArchiveDate ?? '—'}</div>
-          <div>Status: {info.connected ? <Badge bg={C.success + '22'} fg={C.success}>Verbunden</Badge> : <Badge bg={C.borderStrong + '44'} fg={C.textMuted}>Offline</Badge>}</div>
-        </div>
-      </Card>
-    </>
   );
 }

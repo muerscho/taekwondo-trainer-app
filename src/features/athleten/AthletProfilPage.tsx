@@ -95,8 +95,8 @@ function TabProfil({ athlete, onSaved }: { athlete: Athlete; onSaved: () => void
       {nextBelt && <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>Nächste Graduierung: {beltRanks.find((b) => b.id === beltId)?.label} → {nextBelt.label}</div>}
       <Field label="Trainer-Notiz"><textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
 
-      <DirtyFlagSaveButton isDirty={isDirty} onSave={() => {
-        athletesRepo.upsert({ id: athlete.id, name, birthDate: birth, groupId, beltRankId: beltId, trainerNote: note || null });
+      <DirtyFlagSaveButton isDirty={isDirty} onSave={async () => {
+        await athletesRepo.upsert({ id: athlete.id, name, birthDate: birth, groupId, beltRankId: beltId, trainerNote: note || null });
         toast('Profil gespeichert');
         onSaved();
       }} />
@@ -115,9 +115,9 @@ function TabGraduierung({ athleteId, currentBeltId, onChange }: { athleteId: str
 
   useEffect(() => { if (nextBelt && !toBelt) setToBelt(nextBelt.id); }, [nextBelt]);
 
-  const add = () => {
+  const add = async () => {
     if (!toBelt) return;
-    graduationRepo.add({ athleteId, date, fromBeltRankId: currentBeltId, toBeltRankId: toBelt, evaluation });
+    await graduationRepo.add({ athleteId, date, fromBeltRankId: currentBeltId, toBeltRankId: toBelt, evaluation });
     setHistory(graduationRepo.byAthlete(athleteId));
     onChange();
     toast('Graduierung eingetragen');
@@ -125,7 +125,7 @@ function TabGraduierung({ athleteId, currentBeltId, onChange }: { athleteId: str
 
   const remove = async (id: string) => {
     if (!(await confirmDialog({ title: 'Graduierung löschen?', body: 'Der Eintrag wird dauerhaft entfernt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
-    graduationRepo.remove(id);
+    await graduationRepo.remove(id);
     setHistory(graduationRepo.byAthlete(athleteId));
     onChange();
   };
@@ -174,7 +174,7 @@ function TabTermine({ athleteId, termine }: { athleteId: string; termine: any[] 
   const [assignments, setAssignments] = useState(() => termineRepo.list().filter(() => true).map((t) => ({ t, assigned: termineRepo.assignees(t.id).some((a) => a.athleteId === athleteId) })));
 
   const refresh = () => setAssignments(termineRepo.list().map((t) => ({ t, assigned: termineRepo.assignees(t.id).some((a) => a.athleteId === athleteId) })));
-  const toggle = (terminId: string) => { termineRepo.toggleAssignee(terminId, athleteId); refresh(); };
+  const toggle = async (terminId: string) => { await termineRepo.toggleAssignee(terminId, athleteId); refresh(); };
 
   if (termine.length === 0) return <Card><div style={{ color: C.textMuted }}>Noch keine Termine angelegt.</div></Card>;
 
@@ -217,16 +217,16 @@ function TabZiele({ athleteId }: { athleteId: string }) {
       )}
       {goals.map((g) => (
         <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, marginBottom: 6, background: C.bg, borderRadius: RADII.md }}>
-          <button onClick={() => { goalsRepo.toggle(g.id); refresh(); }} style={{ background: 'transparent', border: `2px solid ${g.achieved ? C.success : C.border}`, width: 22, height: 22, borderRadius: 999, color: C.success, fontSize: 14 }}>{g.achieved ? '✓' : ''}</button>
+          <button onClick={async () => { await goalsRepo.toggle(g.id); refresh(); }} style={{ background: 'transparent', border: `2px solid ${g.achieved ? C.success : C.border}`, width: 22, height: 22, borderRadius: 999, color: C.success, fontSize: 14 }}>{g.achieved ? '✓' : ''}</button>
           <span style={{ flex: 1, textDecoration: g.achieved ? 'line-through' : 'none', color: g.achieved ? C.textMuted : C.text }}>{g.text}</span>
-          <button aria-label="Löschen" onClick={() => { goalsRepo.remove(g.id); refresh(); }} style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
+          <button aria-label="Löschen" onClick={async () => { await goalsRepo.remove(g.id); refresh(); }} style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
         </div>
       ))}
       <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <input placeholder="Neues Ziel …" value={txt} onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => {
-          if (e.key === 'Enter' && txt.trim()) { goalsRepo.add(athleteId, txt.trim()); setTxt(''); refresh(); }
+        <input placeholder="Neues Ziel …" value={txt} onChange={(e) => setTxt(e.target.value)} onKeyDown={async (e) => {
+          if (e.key === 'Enter' && txt.trim()) { await goalsRepo.add(athleteId, txt.trim()); setTxt(''); refresh(); }
         }} style={{ ...inputStyle, flex: 1 }} />
-        <button onClick={() => { if (txt.trim()) { goalsRepo.add(athleteId, txt.trim()); setTxt(''); refresh(); } }} style={{ padding: '0 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>+</button>
+        <button onClick={async () => { if (txt.trim()) { await goalsRepo.add(athleteId, txt.trim()); setTxt(''); refresh(); } }} style={{ padding: '0 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>+</button>
       </div>
     </Card>
   );

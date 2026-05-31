@@ -46,7 +46,7 @@ export default function TerminDetailPage() {
       </div>
       {tab === 'uebersicht' && <TabUebersicht terminId={termin.id} tage={tage} ready={ready} ath={ath} phasenTotal={phasenTotal} onDelete={async () => {
         if (!(await confirmDialog({ title: 'Termin löschen?', body: 'Alle Phasen, Kriterien und Zuordnungen werden entfernt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
-        termineRepo.remove(termin.id); reload('termine'); nav('/pruefungen');
+        await termineRepo.remove(termin.id); nav('/pruefungen');
       }} />}
       {tab === 'phasen' && <TabPhasen terminId={termin.id} />}
       {tab === 'athleten' && <TabAthleten terminId={termin.id} terminType={termin.type} />}
@@ -82,9 +82,9 @@ function TabUebersicht({ terminId, tage, ready, ath, phasenTotal, onDelete }: { 
         <Field label="Notizen"><textarea style={{ ...inputStyle, minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         <button onClick={onDelete} style={{ marginTop: 6, padding: '8px 12px', background: C.danger + '12', color: C.danger, border: `1px solid ${C.danger}33`, borderRadius: RADII.sm, fontSize: 12 }}>🗑 Termin löschen</button>
       </Card>
-      <DirtyFlagSaveButton isDirty={isDirty} onSave={() => {
-        termineRepo.upsert({ id: termin.id, type: termin.type, label, date, location: location || null, examinerName: examiner || null, description: description || null, notes: notes || null });
-        reload('termine'); toast('Termin gespeichert');
+      <DirtyFlagSaveButton isDirty={isDirty} onSave={async () => {
+        await termineRepo.upsert({ id: termin.id, type: termin.type, label, date, location: location || null, examinerName: examiner || null, description: description || null, notes: notes || null });
+        toast('Termin gespeichert');
       }} />
     </>
   );
@@ -94,8 +94,8 @@ function TabPhasen({ terminId }: { terminId: string }) {
   const [phases, setPhases] = useState(termineRepo.phases(terminId));
   const total = phases.reduce((s, p) => s + p.durationWeeks, 0);
 
-  const save = () => {
-    termineRepo.setPhases(terminId, phases.map((p) => ({ name: p.name, durationWeeks: p.durationWeeks, focusTopic: p.focusTopic })));
+  const save = async () => {
+    await termineRepo.setPhases(terminId, phases.map((p) => ({ name: p.name, durationWeeks: p.durationWeeks, focusTopic: p.focusTopic })));
     toast('Phasen gespeichert');
   };
   const update = (i: number, patch: any) => setPhases((prev) => prev.map((p, idx) => idx === i ? { ...p, ...patch } : p));
@@ -142,7 +142,7 @@ function TabAthleten({ terminId, terminType }: { terminId: string; terminType: s
         const group = groups.find((g) => g.id === a.groupId);
         const assigned = assignees.some((x) => x.athleteId === a.id);
         return (
-          <div key={a.id} onClick={() => { termineRepo.toggleAssignee(terminId, a.id); setRefresh((x) => x + 1); }} style={{ padding: 10, marginBottom: 6, borderRadius: RADII.md, background: assigned ? (terminType === 'Pruefung' ? C.exam : C.competition) + '12' : C.bg, border: assigned ? `2px solid ${terminType === 'Pruefung' ? C.exam : C.competition}` : '2px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div key={a.id} onClick={async () => { await termineRepo.toggleAssignee(terminId, a.id); setRefresh((x) => x + 1); }} style={{ padding: 10, marginBottom: 6, borderRadius: RADII.md, background: assigned ? (terminType === 'Pruefung' ? C.exam : C.competition) + '12' : C.bg, border: assigned ? `2px solid ${terminType === 'Pruefung' ? C.exam : C.competition}` : '2px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
             <BeltBadge belt={belt} size="sm" />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600 }}>{a.name}</div>
@@ -171,16 +171,16 @@ function TabKriterien({ terminId }: { terminId: string }) {
       </div>
       {crit.map((c) => (
         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, marginBottom: 6, background: C.bg, borderRadius: RADII.md }}>
-          <button onClick={() => { termineRepo.toggleCriterion(c.id); refresh(); }} style={{ background: 'transparent', border: `2px solid ${c.fulfilled ? C.success : C.border}`, width: 22, height: 22, borderRadius: 999, color: C.success }}>{c.fulfilled ? '✓' : ''}</button>
+          <button onClick={async () => { await termineRepo.toggleCriterion(c.id); refresh(); }} style={{ background: 'transparent', border: `2px solid ${c.fulfilled ? C.success : C.border}`, width: 22, height: 22, borderRadius: 999, color: C.success }}>{c.fulfilled ? '✓' : ''}</button>
           <span style={{ flex: 1, textDecoration: c.fulfilled ? 'line-through' : 'none', color: c.fulfilled ? C.textMuted : C.text }}>{c.text}</span>
-          <button onClick={() => { termineRepo.removeCriterion(c.id); refresh(); }} style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
+          <button onClick={async () => { await termineRepo.removeCriterion(c.id); refresh(); }} style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
         </div>
       ))}
       <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <input placeholder="Neues Kriterium …" value={txt} onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => {
-          if (e.key === 'Enter' && txt.trim()) { termineRepo.addCriterion(terminId, txt.trim()); setTxt(''); refresh(); }
+        <input placeholder="Neues Kriterium …" value={txt} onChange={(e) => setTxt(e.target.value)} onKeyDown={async (e) => {
+          if (e.key === 'Enter' && txt.trim()) { await termineRepo.addCriterion(terminId, txt.trim()); setTxt(''); refresh(); }
         }} style={{ ...inputStyle, flex: 1 }} />
-        <button onClick={() => { if (txt.trim()) { termineRepo.addCriterion(terminId, txt.trim()); setTxt(''); refresh(); } }} style={{ padding: '0 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>+</button>
+        <button onClick={async () => { if (txt.trim()) { await termineRepo.addCriterion(terminId, txt.trim()); setTxt(''); refresh(); } }} style={{ padding: '0 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>+</button>
       </div>
     </Card>
   );

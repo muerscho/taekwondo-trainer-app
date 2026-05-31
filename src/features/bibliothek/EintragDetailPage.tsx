@@ -40,7 +40,7 @@ export default function EintragDetailPage() {
       </div>
       {tab === 'uebersicht' && <TabUebersicht entry={entry} onSaved={() => reload('library')} onDelete={async () => {
         if (!(await confirmDialog({ title: 'Eintrag löschen?', body: 'Der Bibliothekseintrag wird entfernt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
-        libraryRepo.remove(entry.id); reload('library'); nav('/bibliothek');
+        await libraryRepo.remove(entry.id); nav('/bibliothek');
       }} />}
       {tab === 'anleitung' && <TabAnleitung entryId={entry.id} />}
       {tab === 'medien' && <TabMedien entry={entry} onSaved={() => reload('library')} />}
@@ -89,21 +89,21 @@ function TabUebersicht({ entry, onSaved, onDelete }: { entry: any; onSaved: () =
         {materials.map((m) => (
           <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 6 }}>
             <span style={{ flex: 1 }}>☐ {m.text}</span>
-            <button onClick={() => { libraryRepo.setMaterials(entry.id, materials.filter((x) => x.id !== m.id).map((x) => x.text)); setMaterials(libraryRepo.materials(entry.id)); }} style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
+            <button onClick={async () => { await libraryRepo.setMaterials(entry.id, materials.filter((x) => x.id !== m.id).map((x) => x.text)); setMaterials(libraryRepo.materials(entry.id)); }} style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
           </div>
         ))}
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           <input value={matTxt} onChange={(e) => setMatTxt(e.target.value)} placeholder="Material hinzufügen …" style={{ ...inputStyle, flex: 1 }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && matTxt.trim()) { const all = [...materials.map((m) => m.text), matTxt.trim()]; libraryRepo.setMaterials(entry.id, all); setMaterials(libraryRepo.materials(entry.id)); setMatTxt(''); } }}
+            onKeyDown={async (e) => { if (e.key === 'Enter' && matTxt.trim()) { const all = [...materials.map((m) => m.text), matTxt.trim()]; await libraryRepo.setMaterials(entry.id, all); setMaterials(libraryRepo.materials(entry.id)); setMatTxt(''); } }}
           />
-          <button onClick={() => { if (matTxt.trim()) { libraryRepo.setMaterials(entry.id, [...materials.map((m) => m.text), matTxt.trim()]); setMaterials(libraryRepo.materials(entry.id)); setMatTxt(''); } }} style={{ padding: '0 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>+</button>
+          <button onClick={async () => { if (matTxt.trim()) { await libraryRepo.setMaterials(entry.id, [...materials.map((m) => m.text), matTxt.trim()]); setMaterials(libraryRepo.materials(entry.id)); setMatTxt(''); } }} style={{ padding: '0 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>+</button>
         </div>
       </Card>
       <Card style={{ marginTop: 10 }}>
         <button onClick={onDelete} style={{ padding: '8px 12px', background: C.danger + '12', color: C.danger, border: `1px solid ${C.danger}33`, borderRadius: RADII.sm, fontSize: 12 }}>🗑 Eintrag löschen</button>
       </Card>
-      <DirtyFlagSaveButton isDirty={isDirty} onSave={() => {
-        libraryRepo.upsert({ id: entry.id, type, title, categoryId: catId, niveau, description: description || null, durationMinutes: dur });
+      <DirtyFlagSaveButton isDirty={isDirty} onSave={async () => {
+        await libraryRepo.upsert({ id: entry.id, type, title, categoryId: catId, niveau, description: description || null, durationMinutes: dur });
         toast('Eintrag gespeichert'); onSaved();
       }} />
     </>
@@ -113,7 +113,7 @@ function TabUebersicht({ entry, onSaved, onDelete }: { entry: any; onSaved: () =
 function TabAnleitung({ entryId }: { entryId: string }) {
   const [steps, setSteps] = useState(libraryRepo.steps(entryId));
   const [txt, setTxt] = useState('');
-  const save = (newSteps: { stepNumber: number; text: string }[]) => { libraryRepo.setSteps(entryId, newSteps); setSteps(libraryRepo.steps(entryId)); };
+  const save = async (newSteps: { stepNumber: number; text: string }[]) => { await libraryRepo.setSteps(entryId, newSteps); setSteps(libraryRepo.steps(entryId)); };
   return (
     <Card>
       <h3 style={{ margin: '0 0 10px' }}>Schritt-für-Schritt</h3>
@@ -152,8 +152,8 @@ function TabMedien({ entry, onSaved }: { entry: any; onSaved: () => void }) {
           <iframe src={`https://www.youtube.com/embed/${entry.youtubeVideoId}`} title="Video" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} allowFullScreen />
         </div>
       )}
-      <DirtyFlagSaveButton isDirty={isDirty} onSave={() => {
-        libraryRepo.upsert({ id: entry.id, type: entry.type, title: entry.title, categoryId: entry.categoryId, niveau: entry.niveau, youtubeVideoId: yt ? extract(yt) : null, description: entry.description, durationMinutes: entry.durationMinutes });
+      <DirtyFlagSaveButton isDirty={isDirty} onSave={async () => {
+        await libraryRepo.upsert({ id: entry.id, type: entry.type, title: entry.title, categoryId: entry.categoryId, niveau: entry.niveau, youtubeVideoId: yt ? extract(yt) : null, description: entry.description, durationMinutes: entry.durationMinutes });
         onSaved(); toast('Video gespeichert');
       }} />
     </Card>
@@ -189,8 +189,8 @@ function TabTimer({ entryId }: { entryId: string }) {
   const total = phases.reduce((s, p) => s + p.durationSeconds, 0) * reps;
   const pct = phases[curPhase] ? ((phases[curPhase].durationSeconds - remaining) / phases[curPhase].durationSeconds) * 100 : 0;
 
-  const savePhases = () => {
-    libraryRepo.setTimer(entryId, { active: true, repetitions: reps }, phases.map((p) => ({ name: p.name, durationSeconds: p.durationSeconds, colorHex: p.colorHex })));
+  const savePhases = async () => {
+    await libraryRepo.setTimer(entryId, { active: true, repetitions: reps }, phases.map((p) => ({ name: p.name, durationSeconds: p.durationSeconds, colorHex: p.colorHex })));
     toast('Timer gespeichert');
   };
 

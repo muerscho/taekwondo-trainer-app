@@ -40,8 +40,8 @@ export default function ErfassungsPage() {
   }, [athletes, showAll, groupFilter, search, unit.groupId]);
 
   const getStatus = (aid: string) => records.find((r) => r.athleteId === aid)?.present ?? null;
-  const setStatus = (aid: string, p: boolean | null) => {
-    attendanceRepo.set(unit.id, aid, p);
+  const setStatus = async (aid: string, p: boolean | null) => {
+    await attendanceRepo.set(unit.id, aid, p);
     setRecords(attendanceRepo.byUnit(unit.id));
   };
   const present = records.filter((r) => r.present === true).length;
@@ -49,11 +49,11 @@ export default function ErfassungsPage() {
   const total = present + absent;
   const quote = total ? Math.round((present / total) * 100) : 0;
 
-  const allPresent = () => { visibleAthletes.forEach((a) => attendanceRepo.set(unit.id, a.id, true)); setRecords(attendanceRepo.byUnit(unit.id)); toast('Alle sichtbaren als anwesend markiert'); };
-  const allAbsent = () => { visibleAthletes.forEach((a) => attendanceRepo.set(unit.id, a.id, false)); setRecords(attendanceRepo.byUnit(unit.id)); toast('Alle sichtbaren als abwesend markiert'); };
+  const allPresent = async () => { await attendanceRepo.setMany(unit.id, visibleAthletes.map((a) => ({ athleteId: a.id, present: true }))); setRecords(attendanceRepo.byUnit(unit.id)); toast('Alle sichtbaren als anwesend markiert'); };
+  const allAbsent = async () => { await attendanceRepo.setMany(unit.id, visibleAthletes.map((a) => ({ athleteId: a.id, present: false }))); setRecords(attendanceRepo.byUnit(unit.id)); toast('Alle sichtbaren als abwesend markiert'); };
 
-  const toggleTrainer = (trainerId: string) => {
-    trainersRepo.toggleAssignment(unit.id, trainerId);
+  const toggleTrainer = async (trainerId: string) => {
+    await trainersRepo.toggleAssignment(unit.id, trainerId);
     setTrainerAssignments(trainersRepo.byUnit(unit.id));
   };
   const isTrainerAssigned = (tid: string) => trainerAssignments.some((a) => a.trainerId === tid);

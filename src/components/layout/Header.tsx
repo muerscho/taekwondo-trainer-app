@@ -2,9 +2,11 @@ import { useLocation, Link } from 'react-router-dom';
 import { NAV } from './navConfig';
 import { C } from '@/design/tokens';
 import { formatTodayHeader } from '@/domain/derivations';
+import { useAuth } from '@/features/auth/authStore';
 
 export function Header() {
   const loc = useLocation();
+  const signOut = useAuth((s) => s.signOut);
   const active = NAV.find((n) => loc.pathname === n.path || loc.pathname.startsWith(n.path + '/')) ?? NAV[0];
   return (
     <header style={{
@@ -18,7 +20,17 @@ export function Header() {
           <div style={{ fontSize: 11, color: C.textMuted }}>{formatTodayHeader()}</div>
         </div>
       </div>
-      <Link to="/einstellungen" aria-label="Einstellungen" style={{ color: C.textMuted, textDecoration: 'none', fontSize: 20 }}>⚙️</Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Link to="/einstellungen" aria-label="Einstellungen" style={{ color: C.textMuted, textDecoration: 'none', fontSize: 20 }}>⚙️</Link>
+        <button
+          onClick={() => { void signOut(); }}
+          aria-label="Abmelden"
+          title="Abmelden"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 20, padding: 0, lineHeight: 1 }}
+        >
+          ⏻
+        </button>
+      </div>
     </header>
   );
 }

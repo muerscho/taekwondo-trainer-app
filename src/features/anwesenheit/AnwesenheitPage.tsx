@@ -83,10 +83,9 @@ function VerlaufView({ groupFilter }: { groupFilter: string }) {
 
   if (relevantUnits.length === 0 || relevantAthletes.length === 0) return <div style={{ color: C.textMuted, padding: 20, textAlign: 'center' }}>Keine Daten für die Matrix.</div>;
 
-  const toggle = (unitId: string, athleteId: string, cur: boolean | null) => {
+  const toggle = async (unitId: string, athleteId: string, cur: boolean | null) => {
     const next = cur === null ? true : cur === true ? false : null;
-    attendanceRepo.set(unitId, athleteId, next);
-    // Re-Render durch Set-State in parent ohne Reload — simple: location.reload könnte sein, aber effizienter:
+    await attendanceRepo.set(unitId, athleteId, next);
     forceTick();
   };
 

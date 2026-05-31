@@ -12,9 +12,6 @@ export type LibrarySource = 'manual' | 'from_planning';
 export type TerminTyp = 'Pruefung' | 'Wettkampf';
 export type GradingEval = 'Bestanden' | 'Gut' | 'Sehr gut' | 'Nicht bestanden';
 export type Weekday = 'Mo' | 'Di' | 'Mi' | 'Do' | 'Fr' | 'Sa' | 'So';
-export type AiProvider = 'Claude' | 'OpenAI' | 'Custom';
-export type AiFunctionId = 'einheit' | 'phasenplan' | 'dashboard' | 'progress' | 'variation' | 'bibliothek';
-export type AiRecContext = 'dashboard' | 'termin' | 'einheit' | 'progress' | 'variation' | 'bibliothek';
 
 export interface Group {
   id: UUID;
@@ -251,48 +248,9 @@ export interface TerminTargetBelt {
   beltRankId: UUID;
 }
 
-export interface AiConfig {
-  id: 'default';
-  provider: AiProvider;
-  model: string;
-  apiKeyCipher: string | null;
-  apiKeyIv: string | null;
-  customEndpointUrl: string | null;
-  lastConnectionTestAt: IsoDateTime | null;
-  lastConnectionTestStatus: 'success' | 'error' | null;
-  lastConnectionTestError: string | null;
-  updatedAt: IsoDateTime;
-}
-
-export interface AiFunctionToggle {
-  functionId: AiFunctionId;
-  enabled: boolean;
-}
-
-export interface AiRecommendation {
-  id: UUID;
-  context: AiRecContext;
-  contextRefId: UUID | null;
-  generatedAt: IsoDateTime;
-  validUntil: IsoDateTime | null;
-  headline: string;
-  body: string;
-  actionLabel: string | null;
-  actionTarget: string | null;
-  status: 'pending' | 'accepted' | 'dismissed';
-}
-
 export interface AlertThreshold {
   kind: 'low_attendance' | 'no_goals' | 'exam_risk';
   value: string;
-}
-
-export interface SyncState {
-  isOnline: boolean;
-  lastSyncAt: IsoDateTime | null;
-  dirty: boolean;
-  driveConnected: boolean;
-  driveUserEmail: string | null;
 }
 
 export interface ToastMessage {

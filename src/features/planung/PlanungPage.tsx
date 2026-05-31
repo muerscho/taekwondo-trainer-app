@@ -123,8 +123,8 @@ function NeueEinheitDialog({ startIso, onClose }: { startIso: string; onClose: (
         </Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
-          <button disabled={!canSave} onClick={() => {
-            unitsRepo.upsert({ date, groupId, durationMinutes: duration, status: 'geplant' });
+          <button disabled={!canSave} onClick={async () => {
+            await unitsRepo.upsert({ date, groupId, durationMinutes: duration, status: 'geplant' });
             toast('Einheit angelegt');
             onClose();
           }} style={{ padding: '8px 14px', background: canSave ? C.primary : C.borderStrong, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Anlegen</button>

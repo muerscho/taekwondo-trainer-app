@@ -99,9 +99,9 @@ function NeuerEintragDialog({ onClose }: { onClose: () => void }) {
         </label>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
-          <button disabled={!canSave} onClick={() => {
-            const e = libraryRepo.upsert({ type, title: title.trim(), categoryId: catId, niveau, description: description || null, durationMinutes: dur });
-            if (timerActive) libraryRepo.setTimer(e.id, { active: true, repetitions: 3 }, [
+          <button disabled={!canSave} onClick={async () => {
+            const e = await libraryRepo.upsert({ type, title: title.trim(), categoryId: catId, niveau, description: description || null, durationMinutes: dur });
+            if (timerActive) await libraryRepo.setTimer(e.id, { active: true, repetitions: 3 }, [
               { name: 'Arbeit', durationSeconds: 30, colorHex: C.danger },
               { name: 'Pause', durationSeconds: 15, colorHex: C.success }
             ]);
