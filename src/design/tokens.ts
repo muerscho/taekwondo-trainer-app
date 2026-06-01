@@ -33,7 +33,7 @@ export const SHADOWS = {
 
 export type BeltDefaultId =
   | 'g10' | 'g9' | 'g8' | 'g7' | 'g6' | 'g5' | 'g4' | 'g3' | 'g2' | 'g1'
-  | 'd1' | 'd2';
+  | 'd1' | 'd2' | 'd3' | 'd4' | 'd5';
 
 export interface BeltDef {
   id: BeltDefaultId;
@@ -56,9 +56,12 @@ export const GURTGRADE_DEFAULT: BeltDef[] = [
   { id: 'g4',  label: '4. Kup',  colorName: 'Blau',         bg: '#3b82f6', border: '#1e40af', fg: '#ffffff', sort: 6, isDan: false },
   { id: 'g3',  label: '3. Kup',  colorName: 'Blau-Rot',     bg: '#a78bfa', border: '#7c3aed', fg: '#ffffff', sort: 7, isDan: false },
   { id: 'g2',  label: '2. Kup',  colorName: 'Rot',          bg: '#ef4444', border: '#b91c1c', fg: '#ffffff', sort: 8, isDan: false },
-  { id: 'g1',  label: '1. Kup',  colorName: 'Rot-Schwarz',  bg: '#7f1d1d', border: '#450a0a', fg: '#ffffff', sort: 9, isDan: false },
+  { id: 'g1',  label: '1. Kup',  colorName: 'Braun-Schwarz', bg: '#5c4033', border: '#3e2723', fg: '#ffffff', sort: 9, isDan: false },
   { id: 'd1',  label: '1. Dan',  colorName: 'Schwarz',      bg: '#111827', border: '#000000', fg: '#fbbf24', sort: 10, isDan: true },
-  { id: 'd2',  label: '2. Dan',  colorName: 'Schwarz',      bg: '#111827', border: '#000000', fg: '#fbbf24', sort: 11, isDan: true }
+  { id: 'd2',  label: '2. Dan',  colorName: 'Schwarz',      bg: '#111827', border: '#000000', fg: '#fbbf24', sort: 11, isDan: true },
+  { id: 'd3',  label: '3. Dan',  colorName: 'Schwarz',      bg: '#111827', border: '#000000', fg: '#fbbf24', sort: 12, isDan: true },
+  { id: 'd4',  label: '4. Dan',  colorName: 'Schwarz',      bg: '#111827', border: '#000000', fg: '#fbbf24', sort: 13, isDan: true },
+  { id: 'd5',  label: '5. Dan',  colorName: 'Schwarz',      bg: '#111827', border: '#000000', fg: '#fbbf24', sort: 14, isDan: true }
 ];
 
 export interface FocusAreaDef {
