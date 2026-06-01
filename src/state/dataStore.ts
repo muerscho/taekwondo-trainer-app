@@ -3,7 +3,7 @@ import * as api from '@/data/repos';
 import { dataLoaders, type SliceKey } from '@/data/repos';
 import type {
   Athlete, Group, BeltRank, FocusArea, BlockCategory, Goal, Graduation,
-  TrainingUnit, TrainingBlock, AttendanceRecord, TrainingUnitTrainer,
+  TrainingUnit, TrainingBlock, WorkoutBlock, AttendanceRecord, TrainingUnitTrainer,
   LibraryEntry, LibraryStep, LibraryMaterial, LibraryTimerConfig, LibraryTimerPhase,
   Termin, TerminPhase, TerminCriterion, TerminAthleteAssignment, TerminTargetBelt,
   Trainer, GroupLevel, UnitDuration, UnitStatus, LibraryTyp, LibraryNiveau,
@@ -40,6 +40,7 @@ interface DataStore {
   libMaterials: LibraryMaterial[];
   libTimerConfigs: LibraryTimerConfig[];
   libTimerPhases: LibraryTimerPhase[];
+  workoutBlocks: WorkoutBlock[];
   loadAll: () => Promise<void>;
   reload: (key?: SliceKey) => Promise<void>;
 }
@@ -49,7 +50,7 @@ const EMPTY = {
   units: [], library: [], termine: [], trainers: [], blocks: [], attendance: [],
   goals: [], graduations: [], unitTrainers: [], terminPhases: [], terminCriteria: [],
   terminAssignees: [], terminTargetBelts: [], libSteps: [], libMaterials: [],
-  libTimerConfigs: [], libTimerPhases: []
+  libTimerConfigs: [], libTimerPhases: [], workoutBlocks: []
 };
 
 export const useData = create<DataStore>((set) => ({
@@ -209,14 +210,18 @@ export const libraryRepo = {
     config: get().libTimerConfigs.find((c) => c.libraryEntryId === entryId) ?? null,
     phases: get().libTimerPhases.filter((p) => p.libraryEntryId === entryId).sort(bySortOrder)
   }),
+  workoutBlocks: (entryId: string): WorkoutBlock[] => get().workoutBlocks.filter((b) => b.libraryEntryId === entryId).sort(bySortOrder),
   upsert: async (e: Partial<LibraryEntry> & { type: LibraryTyp; title: string; categoryId: string; niveau: LibraryNiveau }) => {
     const r = await api.libraryRepo.upsert(e); await reloadSlices(['library']); return r;
   },
-  remove: async (id: string) => { await api.libraryRepo.remove(id); await reloadSlices(['library', 'blocks']); },
+  remove: async (id: string) => { await api.libraryRepo.remove(id); await reloadSlices(['library', 'blocks', 'workoutBlocks']); },
   setSteps: async (entryId: string, steps: { stepNumber: number; text: string }[]) => { await api.libraryRepo.setSteps(entryId, steps); await reloadSlices(['libSteps']); },
   setMaterials: async (entryId: string, materials: string[]) => { await api.libraryRepo.setMaterials(entryId, materials); await reloadSlices(['libMaterials']); },
   setTimer: async (entryId: string, config: { active: boolean; repetitions: number }, phases: Array<{ name: string; durationSeconds: number; colorHex: string }>) => {
     await api.libraryRepo.setTimer(entryId, config, phases); await reloadSlices(['libTimerConfigs', 'libTimerPhases']);
+  },
+  setWorkoutBlocks: async (entryId: string, blocks: Array<{ title: string; categoryId: string; durationMinutes: number; iconEmoji?: string | null; note?: string | null }>) => {
+    await api.libraryRepo.setWorkoutBlocks(entryId, blocks); await reloadSlices(['workoutBlocks']);
   }
 };
 

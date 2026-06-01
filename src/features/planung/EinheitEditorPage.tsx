@@ -162,13 +162,29 @@ export default function EinheitEditorPage() {
       <DirtyFlagSaveButton isDirty={isDirty} onSave={saveUnit} />
 
       <BibliothekPicker open={showLibrary} onClose={() => setShowLibrary(false)} onPick={async (entries) => {
+        let added = 0;
         for (const e of entries) {
-          await blocksRepo.upsert({
-            trainingUnitId: unit.id, title: e.title, categoryId: e.categoryId,
-            durationMinutes: e.durationMinutes, source: 'library', sourceLibraryEntryId: e.id
-          });
+          const wb = e.type === 'Workout' ? libraryRepo.workoutBlocks(e.id) : [];
+          if (wb.length > 0) {
+            // Workout expandiert zu N Blöcken (Reihenfolge bleibt erhalten).
+            for (const b of wb) {
+              await blocksRepo.upsert({
+                trainingUnitId: unit.id, title: b.title, categoryId: b.categoryId,
+                durationMinutes: b.durationMinutes, iconEmoji: b.iconEmoji, note: b.note,
+                source: 'library', sourceLibraryEntryId: e.id
+              });
+              added++;
+            }
+          } else {
+            // Übung/Spiel oder Workout ohne Blöcke -> ein Block wie bisher.
+            await blocksRepo.upsert({
+              trainingUnitId: unit.id, title: e.title, categoryId: e.categoryId,
+              durationMinutes: e.durationMinutes, source: 'library', sourceLibraryEntryId: e.id
+            });
+            added++;
+          }
         }
-        refresh(); setShowLibrary(false); toast(`${entries.length} Block(s) hinzugefügt`);
+        refresh(); setShowLibrary(false); toast(`${added} Block(s) hinzugefügt`);
       }} />
       {showNewBlock && <BlockDialog onClose={() => setShowNewBlock(false)} onSave={async (b) => {
         await blocksRepo.upsert({ trainingUnitId: unit.id, ...b, source: 'custom' }); refresh();
@@ -225,13 +241,19 @@ function BibliothekPicker({ open, onClose, onPick }: { open: boolean; onClose: (
         {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
       </select>
       {filtered.length === 0 && <div style={{ color: C.textMuted, textAlign: 'center', padding: 20 }}>Keine Einträge.</div>}
-      {filtered.map((e) => (
-        <div key={e.id} onClick={() => setSel({ ...sel, [e.id]: !sel[e.id] })}
-          style={{ padding: 10, marginBottom: 6, borderRadius: RADII.md, background: sel[e.id] ? C.primary + '12' : C.bg, border: sel[e.id] ? `2px solid ${C.primary}` : '2px solid transparent', cursor: 'pointer' }}>
-          <div style={{ fontWeight: 600 }}>{e.title}</div>
-          <div style={{ fontSize: 11, color: C.textMuted }}>{focusAreas.find((f) => f.id === e.categoryId)?.name} · {e.niveau} · {e.durationMinutes} min</div>
-        </div>
-      ))}
+      {filtered.map((e) => {
+        const blockCount = e.type === 'Workout' ? libraryRepo.workoutBlocks(e.id).length : 0;
+        return (
+          <div key={e.id} onClick={() => setSel({ ...sel, [e.id]: !sel[e.id] })}
+            style={{ padding: 10, marginBottom: 6, borderRadius: RADII.md, background: sel[e.id] ? C.primary + '12' : C.bg, border: sel[e.id] ? `2px solid ${C.primary}` : '2px solid transparent', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontWeight: 600 }}>{e.title}</span>
+              {blockCount > 0 && <Badge bg={C.primary + '22'} fg={C.primary}>🧩 {blockCount} Blöcke</Badge>}
+            </div>
+            <div style={{ fontSize: 11, color: C.textMuted }}>{focusAreas.find((f) => f.id === e.categoryId)?.name} · {e.niveau} · {e.durationMinutes} min</div>
+          </div>
+        );
+      })}
       {selected.length > 0 && (
         <button onClick={() => onPick(selected)} style={{ position: 'sticky', bottom: 0, width: '100%', padding: '12px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.md, fontWeight: 600, marginTop: 10 }}>
           {selected.length} Eintrag(e) übernehmen
@@ -246,20 +268,36 @@ function SaveToLibDialog({ unitId, blocks, onClose }: { unitId: string; blocks: 
   const [title, setTitle] = useState('');
   const total = blocks.reduce((s, b) => s + b.durationMinutes, 0);
   const cats = Array.from(new Set(blocks.map((b) => focusAreas.find((f) => f.id === b.categoryId)?.name).filter(Boolean)));
+  // Anforderung 3: Ein Workout muss aus mindestens 2 Blöcken bestehen.
+  const enoughBlocks = blocks.length >= 2;
+  const canSave = !!title.trim() && enoughBlocks;
 
   return (
     <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: C.surface, borderRadius: RADII.lg, padding: 20, width: 400, maxWidth: '90%' }}>
         <h3 style={{ marginTop: 0 }}>In Bibliothek speichern</h3>
         <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>Vorschau: {blocks.length} Blöcke · {total} min · {cats.join(', ')}</div>
+        {!enoughBlocks && (
+          <div style={{ fontSize: 12, color: C.danger, background: C.danger + '12', border: `1px solid ${C.danger}33`, borderRadius: RADII.sm, padding: 8, marginBottom: 10 }}>
+            Ein Workout muss aus mindestens 2 Blöcken bestehen. Füge weitere Blöcke zur Einheit hinzu.
+          </div>
+        )}
         <Field label="Titel *"><input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. Hiit 90 min" /></Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
-          <button disabled={!title.trim()} onClick={async () => {
+          <button disabled={!canSave} onClick={async () => {
             const catId = blocks[0]?.categoryId ?? focusAreas[0]?.id;
-            await libraryRepo.upsert({ type: 'Workout', title: title.trim(), categoryId: catId, niveau: 'Mittelstufe', durationMinutes: total, source: 'from_planning', createdFromUnitId: unitId });
+            // 1) Summen-Eintrag (Cache der Gesamtdauer für die Listen-Anzeige).
+            const entry = await libraryRepo.upsert({ type: 'Workout', title: title.trim(), categoryId: catId, niveau: 'Mittelstufe', durationMinutes: total, source: 'from_planning', createdFromUnitId: unitId });
+            // 2) Einzelne Blöcke der Einheit reihenfolge-erhaltend übernehmen
+            //    (ein Bulk-insert wegen des deferred >=2-Blöcke-Triggers).
+            await libraryRepo.setWorkoutBlocks(entry.id, blocks.map((b) => ({
+              title: b.title, categoryId: b.categoryId, durationMinutes: b.durationMinutes,
+              iconEmoji: b.iconEmoji, note: b.note
+            })));
+            reload('library');
             toast('In Bibliothek gespeichert'); onClose();
-          }} style={{ padding: '8px 14px', background: C.success, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Speichern</button>
+          }} style={{ padding: '8px 14px', background: canSave ? C.success : C.borderStrong, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Speichern</button>
         </div>
       </div>
     </div>

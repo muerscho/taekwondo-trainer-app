@@ -37,6 +37,7 @@ export default function BibliothekListePage() {
           const cat = focusAreas.find((f) => f.id === e.categoryId);
           const typColor = TYP_FARBEN[e.type] ?? C.primary;
           const timer = libraryRepo.timer(e.id);
+          const blockCount = e.type === 'Workout' ? libraryRepo.workoutBlocks(e.id).length : 0;
           return (
             <Link key={e.id} to={`/bibliothek/${e.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
               <Card>
@@ -47,6 +48,7 @@ export default function BibliothekListePage() {
                   {timer.config?.active && <Badge bg={C.warn + '22'} fg={C.warn}>⏱ Timer</Badge>}
                   {e.youtubeVideoId && <Badge bg={C.danger + '22'} fg={C.danger}>▶ Video</Badge>}
                   {e.source === 'from_planning' && <Badge bg={C.primary + '22'} fg={C.primary}>📅 Aus Planung</Badge>}
+                  {e.type === 'Workout' && <Badge bg={C.primary + '22'} fg={C.primary}>🧩 {blockCount} Blöcke</Badge>}
                 </div>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>{e.title}</div>
                 <div style={{ fontSize: 11, color: C.textMuted }}>{e.durationMinutes} min</div>

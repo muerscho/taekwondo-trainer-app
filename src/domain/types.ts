@@ -124,6 +124,19 @@ export interface TrainingBlock {
   updatedAt: IsoDateTime;
 }
 
+export interface WorkoutBlock {
+  id: UUID;
+  libraryEntryId: UUID;
+  sortOrder: number;
+  title: string;
+  categoryId: UUID;
+  durationMinutes: number;
+  iconEmoji: string | null;
+  note: string | null;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
 export interface Trainer {
   id: UUID;
   name: string;

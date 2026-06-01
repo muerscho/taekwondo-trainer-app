@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { uuid, nowIso, weekdayOf, isoWeek } from '@/domain/derivations';
 import type {
   Athlete, Group, BeltRank, FocusArea, BlockCategory, Goal, Graduation,
-  TrainingUnit, TrainingBlock, AttendanceRecord,
+  TrainingUnit, TrainingBlock, WorkoutBlock, AttendanceRecord,
   LibraryEntry, LibraryStep, LibraryMaterial, LibraryTimerConfig, LibraryTimerPhase,
   Termin, TerminPhase, TerminCriterion, TerminAthleteAssignment, TerminTargetBelt,
   UnitStatus, UnitDuration, GroupLevel,
@@ -68,6 +68,11 @@ const toBlock = (r: any): TrainingBlock => ({
   categoryId: r.category_id, durationMinutes: r.duration_minutes, iconEmoji: r.icon_emoji ?? null,
   note: r.note ?? null, source: r.source, sourceLibraryEntryId: r.source_library_entry_id ?? null,
   createdAt: r.created_at, updatedAt: r.updated_at
+});
+const toWorkoutBlock = (r: any): WorkoutBlock => ({
+  id: r.id, libraryEntryId: r.library_entry_id, sortOrder: r.sort_order, title: r.title,
+  categoryId: r.category_id, durationMinutes: r.duration_minutes, iconEmoji: r.icon_emoji ?? null,
+  note: r.note ?? null, createdAt: r.created_at, updatedAt: r.updated_at
 });
 const toTrainer = (r: any): Trainer => ({
   id: r.id, name: r.name, role: r.role, colorHex: r.color_hex, active: r.active,
@@ -394,6 +399,21 @@ export const libraryRepo = {
     check(await supabase.from('library_timer_configs').upsert({ library_entry_id: entryId, active: config.active, repetitions: config.repetitions }));
     check(await supabase.from('library_timer_phases').delete().eq('library_entry_id', entryId));
     if (phases.length) check(await supabase.from('library_timer_phases').insert(phases.map((p, i) => ({ id: uuid(), library_entry_id: entryId, name: p.name, duration_seconds: p.durationSeconds, color_hex: p.colorHex, sort_order: i }))));
+  },
+
+  // Workout-Blöcke: ein LibraryEntry vom Typ 'Workout' besitzt eine geordnete
+  // Block-Liste (analog steps/materials). WICHTIG: wegen des DEFERRABLE
+  // INITIALLY DEFERRED Constraint-Triggers (>= 2 Blöcke) MÜSSEN alle Blöcke in
+  // EINEM Bulk-insert geschrieben werden – nicht einzeln upserten.
+  async workoutBlocks(entryId: string): Promise<WorkoutBlock[]> {
+    return check(await supabase.from('library_workout_blocks').select('*').eq('library_entry_id', entryId).order('sort_order')).map(toWorkoutBlock);
+  },
+  async setWorkoutBlocks(entryId: string, blocks: Array<{ title: string; categoryId: string; durationMinutes: number; iconEmoji?: string | null; note?: string | null }>): Promise<void> {
+    check(await supabase.from('library_workout_blocks').delete().eq('library_entry_id', entryId));
+    if (blocks.length) check(await supabase.from('library_workout_blocks').insert(blocks.map((b, i) => ({
+      id: uuid(), library_entry_id: entryId, sort_order: i, title: b.title, category_id: b.categoryId,
+      duration_minutes: b.durationMinutes, icon_emoji: b.iconEmoji ?? null, note: b.note ?? null
+    }))));
   }
 };
 
@@ -521,7 +541,8 @@ export const dataLoaders = {
   libTimerConfigs: async () => check(await supabase.from('library_timer_configs').select('*'))
     .map((r: any) => ({ libraryEntryId: r.library_entry_id, active: r.active, repetitions: r.repetitions })),
   libTimerPhases: async () => check(await supabase.from('library_timer_phases').select('*').order('sort_order'))
-    .map((r: any) => ({ id: r.id, libraryEntryId: r.library_entry_id, name: r.name, durationSeconds: r.duration_seconds, colorHex: r.color_hex, sortOrder: r.sort_order }))
+    .map((r: any) => ({ id: r.id, libraryEntryId: r.library_entry_id, name: r.name, durationSeconds: r.duration_seconds, colorHex: r.color_hex, sortOrder: r.sort_order })),
+  workoutBlocks: async () => check(await supabase.from('library_workout_blocks').select('*').order('sort_order')).map(toWorkoutBlock)
 };
 
 export type SliceKey = keyof typeof dataLoaders;

@@ -9,9 +9,9 @@ import { confirmDialog } from '@/components/ui/ConfirmDialog';
 import { C, RADII, TYP_FARBEN, LIBRARY_TYPEN, LIBRARY_NIVEAUS } from '@/design/tokens';
 import { useData, libraryRepo } from '@/state/dataStore';
 import { toast } from '@/state/uiStore';
-import type { LibraryNiveau, LibraryTyp } from '@/domain/types';
+import type { LibraryNiveau, LibraryTyp, WorkoutBlock } from '@/domain/types';
 
-type Tab = 'uebersicht' | 'anleitung' | 'medien' | 'timer';
+type Tab = 'uebersicht' | 'bloecke' | 'anleitung' | 'medien' | 'timer';
 
 export default function EintragDetailPage() {
   const { id } = useParams();
@@ -34,7 +34,7 @@ export default function EintragDetailPage() {
       </Card>
       <div style={{ marginTop: 12 }}>
         <TabBar<Tab>
-          tabs={[{ id: 'uebersicht', label: 'Übersicht' }, { id: 'anleitung', label: 'Anleitung' }, { id: 'medien', label: 'Medien' }, ...(timer.config?.active ? [{ id: 'timer' as Tab, label: '⏱ Timer' }] : [])]}
+          tabs={[{ id: 'uebersicht', label: 'Übersicht' }, ...(entry.type === 'Workout' ? [{ id: 'bloecke' as Tab, label: '🧩 Blöcke' }] : []), { id: 'anleitung', label: 'Anleitung' }, { id: 'medien', label: 'Medien' }, ...(timer.config?.active ? [{ id: 'timer' as Tab, label: '⏱ Timer' }] : [])]}
           active={tab} onChange={setTab}
         />
       </div>
@@ -42,6 +42,7 @@ export default function EintragDetailPage() {
         if (!(await confirmDialog({ title: 'Eintrag löschen?', body: 'Der Bibliothekseintrag wird entfernt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
         await libraryRepo.remove(entry.id); nav('/bibliothek');
       }} />}
+      {tab === 'bloecke' && entry.type === 'Workout' && <TabBloecke entry={entry} onSaved={() => reload('library')} />}
       {tab === 'anleitung' && <TabAnleitung entryId={entry.id} />}
       {tab === 'medien' && <TabMedien entry={entry} onSaved={() => reload('library')} />}
       {tab === 'timer' && <TabTimer entryId={entry.id} />}
@@ -107,6 +108,125 @@ function TabUebersicht({ entry, onSaved, onDelete }: { entry: any; onSaved: () =
         toast('Eintrag gespeichert'); onSaved();
       }} />
     </>
+  );
+}
+
+// Lokaler Bearbeitungs-Typ für Workout-Blöcke (id nur clientseitig für React-keys).
+type DraftBlock = { id: string; title: string; categoryId: string; durationMinutes: number; iconEmoji: string | null; note: string | null };
+
+function TabBloecke({ entry, onSaved }: { entry: any; onSaved: () => void }) {
+  const { focusAreas } = useData();
+  const initial = (): DraftBlock[] => libraryRepo.workoutBlocks(entry.id).map((b: WorkoutBlock) => ({
+    id: b.id, title: b.title, categoryId: b.categoryId, durationMinutes: b.durationMinutes, iconEmoji: b.iconEmoji, note: b.note
+  }));
+  const [blocks, setBlocks] = useState<DraftBlock[]>(initial);
+  const [edit, setEdit] = useState<DraftBlock | null>(null);
+  const [showNew, setShowNew] = useState(false);
+
+  const saved = libraryRepo.workoutBlocks(entry.id);
+  const isDirty = JSON.stringify(blocks.map((b) => ({ t: b.title, c: b.categoryId, d: b.durationMinutes, i: b.iconEmoji, n: b.note })))
+    !== JSON.stringify(saved.map((b) => ({ t: b.title, c: b.categoryId, d: b.durationMinutes, i: b.iconEmoji, n: b.note })));
+  const total = blocks.reduce((s, b) => s + b.durationMinutes, 0);
+  const enough = blocks.length >= 2;
+
+  const move = (idx: number, dir: 'up' | 'down') => {
+    const swap = dir === 'up' ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= blocks.length) return;
+    const next = [...blocks];
+    [next[idx], next[swap]] = [next[swap], next[idx]];
+    setBlocks(next);
+  };
+  const del = async (idx: number) => {
+    if (blocks.length <= 2) {
+      await confirmDialog({ title: 'Block kann nicht entfernt werden', body: 'Ein Workout muss aus mindestens 2 Blöcken bestehen.', tone: 'danger', confirmLabel: 'OK' });
+      return;
+    }
+    if (!(await confirmDialog({ title: 'Block löschen?', body: 'Der Block wird aus dem Workout entfernt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
+    setBlocks(blocks.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <>
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}>Blöcke</h3>
+          <div style={{ fontSize: 11, color: C.textMuted }}>{blocks.length} Blöcke · {total} min</div>
+        </div>
+        {!enough && (
+          <div style={{ fontSize: 12, color: C.danger, background: C.danger + '12', border: `1px solid ${C.danger}33`, borderRadius: RADII.sm, padding: 8, marginBottom: 10 }}>
+            Ein Workout muss aus mindestens 2 Blöcken bestehen. Füge weitere Blöcke hinzu, bevor du speicherst.
+          </div>
+        )}
+        {blocks.length === 0 && <div style={{ color: C.textMuted, padding: 12, textAlign: 'center' }}>Noch keine Blöcke.</div>}
+        {blocks.map((b, i) => {
+          const focus = focusAreas.find((f) => f.id === b.categoryId);
+          return (
+            <div key={b.id} style={{ background: C.bg, padding: 10, borderRadius: RADII.md, marginBottom: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <button disabled={i === 0} onClick={() => move(i, 'up')} aria-label="Hoch" style={{ background: 'transparent', border: 'none', color: C.textMuted }}>▲</button>
+                <button disabled={i === blocks.length - 1} onClick={() => move(i, 'down')} aria-label="Runter" style={{ background: 'transparent', border: 'none', color: C.textMuted }}>▼</button>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 16 }}>{b.iconEmoji ?? '📌'}</span>
+                  <strong style={{ fontSize: 13 }}>{b.title}</strong>
+                  <Badge bg={(focus?.colorHex ?? C.primary) + '22'} fg={focus?.colorHex ?? C.textMuted}>{focus?.name ?? '—'}</Badge>
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{b.durationMinutes} min {b.note && `· ${b.note}`}</div>
+              </div>
+              <button onClick={() => setEdit(b)} aria-label="Bearbeiten" style={{ background: 'transparent', border: 'none', color: C.textMuted }}>✏️</button>
+              <button onClick={() => del(i)} aria-label="Löschen" style={{ background: 'transparent', border: 'none', color: C.danger }}>🗑</button>
+            </div>
+          );
+        })}
+        <div style={{ marginTop: 10 }}>
+          <button onClick={() => setShowNew(true)} style={{ padding: '8px 12px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADII.sm, fontSize: 12 }}>✏️ Block hinzufügen</button>
+        </div>
+      </Card>
+
+      {showNew && <WorkoutBlockDialog onClose={() => setShowNew(false)} onSave={(b) => setBlocks([...blocks, { id: 'new-' + Date.now() + '-' + blocks.length, ...b }])} />}
+      {edit && <WorkoutBlockDialog block={edit} onClose={() => setEdit(null)} onSave={(b) => setBlocks(blocks.map((x) => x.id === edit.id ? { ...x, ...b } : x))} />}
+
+      <DirtyFlagSaveButton isDirty={isDirty && enough} onSave={async () => {
+        await libraryRepo.setWorkoutBlocks(entry.id, blocks.map((b) => ({
+          title: b.title, categoryId: b.categoryId, durationMinutes: b.durationMinutes, iconEmoji: b.iconEmoji, note: b.note
+        })));
+        // Summen-Dauer im Eintrag nachziehen (Cache für Listen-Anzeige).
+        await libraryRepo.upsert({ id: entry.id, type: entry.type, title: entry.title, categoryId: entry.categoryId, niveau: entry.niveau, description: entry.description, youtubeVideoId: entry.youtubeVideoId, durationMinutes: total });
+        setBlocks(libraryRepo.workoutBlocks(entry.id).map((b: WorkoutBlock) => ({ id: b.id, title: b.title, categoryId: b.categoryId, durationMinutes: b.durationMinutes, iconEmoji: b.iconEmoji, note: b.note })));
+        onSaved(); toast('Blöcke gespeichert');
+      }} />
+    </>
+  );
+}
+
+function WorkoutBlockDialog({ block, onClose, onSave }: { block?: DraftBlock; onClose: () => void; onSave: (b: { title: string; categoryId: string; durationMinutes: number; iconEmoji: string | null; note: string | null }) => void }) {
+  const { focusAreas } = useData();
+  const [title, setTitle] = useState(block?.title ?? '');
+  const [catId, setCatId] = useState(block?.categoryId ?? focusAreas[0]?.id ?? '');
+  const [dur, setDur] = useState(block?.durationMinutes ?? 15);
+  const [icon, setIcon] = useState(block?.iconEmoji ?? '');
+  const [note, setNote] = useState(block?.note ?? '');
+
+  return (
+    <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.surface, borderRadius: RADII.lg, padding: 20, width: 400, maxWidth: '90%' }}>
+        <h3 style={{ marginTop: 0 }}>{block ? 'Block bearbeiten' : 'Block hinzufügen'}</h3>
+        <Field label="Titel *"><input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+        <Field label="Kategorie">
+          <select style={inputStyle} value={catId} onChange={(e) => setCatId(e.target.value)}>
+            {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Dauer (min)"><input type="number" min={0} style={inputStyle} value={dur} onChange={(e) => setDur(Math.max(0, Number(e.target.value) || 0))} /></Field>
+        <Field label="Icon (Emoji)"><input style={inputStyle} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="z. B. 🏃" /></Field>
+        <Field label="Notiz"><textarea style={{ ...inputStyle, minHeight: 60 }} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
+          <button disabled={!title.trim()} onClick={() => { onSave({ title: title.trim(), categoryId: catId, durationMinutes: dur, iconEmoji: icon || null, note: note || null }); onClose(); }} style={{ padding: '8px 14px', background: C.primary, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Übernehmen</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
