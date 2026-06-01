@@ -9,7 +9,7 @@ import { toast } from '@/state/uiStore';
 import type { LibraryNiveau, LibraryTyp } from '@/domain/types';
 
 export default function BibliothekListePage() {
-  const { library, blockCategories, reload } = useData();
+  const { library, focusAreas, reload } = useData();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
   const [niveau, setNiveau] = useState('');
@@ -23,7 +23,7 @@ export default function BibliothekListePage() {
         <input placeholder="Titel suchen …" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...inputStyle, flex: '1 1 200px' }} />
         <select style={{ ...inputStyle, minWidth: 140 }} value={cat} onChange={(e) => setCat(e.target.value)}>
           <option value="">Kategorie</option>
-          {blockCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select>
         <select style={{ ...inputStyle, minWidth: 140 }} value={niveau} onChange={(e) => setNiveau(e.target.value)}>
           <option value="">Niveau</option>
@@ -34,7 +34,7 @@ export default function BibliothekListePage() {
       <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{filtered.length} Einträge</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
         {filtered.map((e) => {
-          const cat = blockCategories.find((c) => c.id === e.categoryId);
+          const cat = focusAreas.find((f) => f.id === e.categoryId);
           const typColor = TYP_FARBEN[e.type] ?? C.primary;
           const timer = libraryRepo.timer(e.id);
           return (
@@ -61,10 +61,10 @@ export default function BibliothekListePage() {
 }
 
 function NeuerEintragDialog({ onClose }: { onClose: () => void }) {
-  const { blockCategories } = useData();
+  const { focusAreas } = useData();
   const [type, setType] = useState<LibraryTyp>('Übung');
   const [title, setTitle] = useState('');
-  const [catId, setCatId] = useState(blockCategories[0]?.id ?? '');
+  const [catId, setCatId] = useState(focusAreas[0]?.id ?? '');
   const [niveau, setNiveau] = useState<LibraryNiveau>('Mittelstufe');
   const [description, setDescription] = useState('');
   const [dur, setDur] = useState(15);
@@ -84,7 +84,7 @@ function NeuerEintragDialog({ onClose }: { onClose: () => void }) {
         <Field label="Titel *"><input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <Field label="Kategorie">
           <select style={inputStyle} value={catId} onChange={(e) => setCatId(e.target.value)}>
-            {blockCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </Field>
         <Field label="Niveau">

@@ -56,7 +56,7 @@ function fmtRelTime(ms: number): string {
 export default function EinheitRunPage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { groups, blockCategories, focusAreas, reload } = useData();
+  const { groups, focusAreas, reload } = useData();
   const unit = id ? unitsRepo.get(id) : null;
   const blocks = useMemo<TrainingBlock[]>(() => unit ? blocksRepo.byUnit(unit.id) : [], [unit?.id]);
 
@@ -150,8 +150,7 @@ export default function EinheitRunPage() {
   const totalSollSec = blocks.reduce((s, b) => s + b.durationMinutes * 60, 0);
   const currentBlock = blocks[currentIdx];
   const nextBlock = blocks[currentIdx + 1] ?? null;
-  const cat = blockCategories.find((c) => c.id === currentBlock.categoryId);
-  const focus = focusAreas.find((f) => f.id === cat?.focusAreaId);
+  const focus = focusAreas.find((f) => f.id === currentBlock.categoryId); // categoryId = Schwerpunkt-ID (Migration 0004)
   const lib = currentBlock.sourceLibraryEntryId ? libraryRepo.get(currentBlock.sourceLibraryEntryId) : null;
   const steps = lib ? libraryRepo.steps(lib.id) : [];
   const materials = lib ? libraryRepo.materials(lib.id) : [];
@@ -250,7 +249,7 @@ export default function EinheitRunPage() {
         </div>
         {focus && (
           <div style={{ fontSize: 12, color: focus.colorHex, marginBottom: 18, fontWeight: 600 }}>
-            ● {focus.name}{cat ? ` · ${cat.name}` : ''}
+            ● {focus.name}
           </div>
         )}
 

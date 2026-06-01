@@ -50,7 +50,7 @@ export default function EintragDetailPage() {
 }
 
 function TabUebersicht({ entry, onSaved, onDelete }: { entry: any; onSaved: () => void; onDelete: () => void }) {
-  const { blockCategories } = useData();
+  const { focusAreas } = useData();
   const [title, setTitle] = useState(entry.title);
   const [type, setType] = useState<LibraryTyp>(entry.type);
   const [catId, setCatId] = useState(entry.categoryId);
@@ -73,7 +73,7 @@ function TabUebersicht({ entry, onSaved, onDelete }: { entry: any; onSaved: () =
         </Field>
         <Field label="Kategorie">
           <select style={inputStyle} value={catId} onChange={(e) => setCatId(e.target.value)}>
-            {blockCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </Field>
         <Field label="Niveau">

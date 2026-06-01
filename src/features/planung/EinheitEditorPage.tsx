@@ -16,7 +16,7 @@ import type { TrainingBlock, UnitDuration, UnitStatus, LibraryEntry } from '@/do
 export default function EinheitEditorPage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { groups, blockCategories, focusAreas, reload } = useData();
+  const { groups, focusAreas, reload } = useData();
   const unit = unitsRepo.get(id!);
   if (!unit) return <div style={{ padding: 30, textAlign: 'center' }}>Einheit nicht gefunden · <Link to="/planung">Zurück</Link></div>;
 
@@ -51,12 +51,11 @@ export default function EinheitEditorPage() {
   const schwerpunkteAb = useMemo(() => {
     const acc: Record<string, number> = {};
     for (const b of blocks) {
-      const cat = blockCategories.find((c) => c.id === b.categoryId);
-      if (!cat?.focusAreaId) continue;
-      acc[cat.focusAreaId] = (acc[cat.focusAreaId] ?? 0) + b.durationMinutes;
+      if (!b.categoryId) continue; // categoryId ist seit Migration 0004 direkt die Schwerpunkt-ID
+      acc[b.categoryId] = (acc[b.categoryId] ?? 0) + b.durationMinutes;
     }
     return Object.entries(acc).map(([faId, min]) => ({ faId, min }));
-  }, [blocks, blockCategories]);
+  }, [blocks]);
 
   const deleteUnit = async () => {
     if (!(await confirmDialog({ title: 'Einheit löschen?', body: 'Alle Blöcke und Anwesenheiten dieser Einheit werden entfernt.', tone: 'danger', confirmLabel: 'Löschen' }))) return;
@@ -117,7 +116,7 @@ export default function EinheitEditorPage() {
           <h3 style={{ margin: 0 }}>Blöcke</h3>
           <div style={{ fontSize: 11, color: puffer < 0 ? C.danger : C.textMuted }}>Belegt {used} / {duration} min · Puffer {puffer >= 0 ? '+' : ''}{puffer} min</div>
         </div>
-        <TimelineBlocks totalMinutes={duration} segments={blocks.map((b) => ({ name: b.title, color: focusAreas.find((f) => f.id === blockCategories.find((c) => c.id === b.categoryId)?.focusAreaId)?.colorHex ?? C.primary, minutes: b.durationMinutes }))} />
+        <TimelineBlocks totalMinutes={duration} segments={blocks.map((b) => ({ name: b.title, color: focusAreas.find((f) => f.id === b.categoryId)?.colorHex ?? C.primary, minutes: b.durationMinutes }))} />
 
         {schwerpunkteAb.length > 0 && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
@@ -129,8 +128,7 @@ export default function EinheitEditorPage() {
         <div style={{ marginTop: 14 }}>
           {blocks.length === 0 && <div style={{ color: C.textMuted, padding: 12, textAlign: 'center' }}>Noch keine Blöcke. Füge einen Block aus der Bibliothek hinzu oder erstelle einen eigenen.</div>}
           {blocks.map((b, i) => {
-            const cat = blockCategories.find((c) => c.id === b.categoryId);
-            const focus = focusAreas.find((f) => f.id === cat?.focusAreaId);
+            const focus = focusAreas.find((f) => f.id === b.categoryId);
             return (
               <div key={b.id} style={{ background: C.bg, padding: 10, borderRadius: RADII.md, marginBottom: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -141,7 +139,7 @@ export default function EinheitEditorPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 16 }}>{b.iconEmoji ?? '📌'}</span>
                     <strong style={{ fontSize: 13 }}>{b.title}</strong>
-                    <Badge bg={focus?.colorHex + '22'} fg={focus?.colorHex}>{cat?.name ?? '—'}</Badge>
+                    <Badge bg={focus?.colorHex + '22'} fg={focus?.colorHex}>{focus?.name ?? '—'}</Badge>
                     <Badge bg={C.bg} fg={C.textMuted}>{b.source === 'library' ? '📚 Bibliothek' : '✏️ Individuell'}</Badge>
                   </div>
                   <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{b.durationMinutes} min {b.note && `· ${b.note}`}</div>
@@ -184,9 +182,9 @@ export default function EinheitEditorPage() {
 }
 
 function BlockDialog({ block, onClose, onSave }: { block?: TrainingBlock; onClose: () => void; onSave: (b: { title: string; categoryId: string; durationMinutes: number; iconEmoji?: string | null; note?: string | null }) => void }) {
-  const { blockCategories } = useData();
+  const { focusAreas } = useData();
   const [title, setTitle] = useState(block?.title ?? '');
-  const [catId, setCatId] = useState(block?.categoryId ?? blockCategories[0]?.id);
+  const [catId, setCatId] = useState(block?.categoryId ?? focusAreas[0]?.id);
   const [dur, setDur] = useState(block?.durationMinutes ?? 15);
   const [icon, setIcon] = useState(block?.iconEmoji ?? '');
   const [note, setNote] = useState(block?.note ?? '');
@@ -198,7 +196,7 @@ function BlockDialog({ block, onClose, onSave }: { block?: TrainingBlock; onClos
         <Field label="Titel *"><input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <Field label="Kategorie">
           <select style={inputStyle} value={catId} onChange={(e) => setCatId(e.target.value)}>
-            {blockCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </Field>
         <Field label="Dauer (min)"><input type="number" min={0} style={inputStyle} value={dur} onChange={(e) => setDur(Math.max(0, Number(e.target.value) || 0))} /></Field>
@@ -214,7 +212,7 @@ function BlockDialog({ block, onClose, onSave }: { block?: TrainingBlock; onClos
 }
 
 function BibliothekPicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (entries: LibraryEntry[]) => void }) {
-  const { library, blockCategories } = useData();
+  const { library, focusAreas } = useData();
   const [q, setQ] = useState(''); const [cat, setCat] = useState(''); const [sel, setSel] = useState<Record<string, boolean>>({});
   const filtered = library.filter((e) => (!cat || e.categoryId === cat) && (!q || e.title.toLowerCase().includes(q.toLowerCase())));
   const selected = Object.keys(sel).filter((k) => sel[k]).map((id) => library.find((l) => l.id === id)!).filter(Boolean);
@@ -224,14 +222,14 @@ function BibliothekPicker({ open, onClose, onPick }: { open: boolean; onClose: (
       <input placeholder="Suche …" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...inputStyle, width: '100%', marginBottom: 8 }} />
       <select style={{ ...inputStyle, width: '100%', marginBottom: 8 }} value={cat} onChange={(e) => setCat(e.target.value)}>
         <option value="">Alle Kategorien</option>
-        {blockCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        {focusAreas.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
       </select>
       {filtered.length === 0 && <div style={{ color: C.textMuted, textAlign: 'center', padding: 20 }}>Keine Einträge.</div>}
       {filtered.map((e) => (
         <div key={e.id} onClick={() => setSel({ ...sel, [e.id]: !sel[e.id] })}
           style={{ padding: 10, marginBottom: 6, borderRadius: RADII.md, background: sel[e.id] ? C.primary + '12' : C.bg, border: sel[e.id] ? `2px solid ${C.primary}` : '2px solid transparent', cursor: 'pointer' }}>
           <div style={{ fontWeight: 600 }}>{e.title}</div>
-          <div style={{ fontSize: 11, color: C.textMuted }}>{blockCategories.find((c) => c.id === e.categoryId)?.name} · {e.niveau} · {e.durationMinutes} min</div>
+          <div style={{ fontSize: 11, color: C.textMuted }}>{focusAreas.find((f) => f.id === e.categoryId)?.name} · {e.niveau} · {e.durationMinutes} min</div>
         </div>
       ))}
       {selected.length > 0 && (
@@ -244,10 +242,10 @@ function BibliothekPicker({ open, onClose, onPick }: { open: boolean; onClose: (
 }
 
 function SaveToLibDialog({ unitId, blocks, onClose }: { unitId: string; blocks: TrainingBlock[]; onClose: () => void }) {
-  const { blockCategories, reload } = useData();
+  const { focusAreas, reload } = useData();
   const [title, setTitle] = useState('');
   const total = blocks.reduce((s, b) => s + b.durationMinutes, 0);
-  const cats = Array.from(new Set(blocks.map((b) => blockCategories.find((c) => c.id === b.categoryId)?.name).filter(Boolean)));
+  const cats = Array.from(new Set(blocks.map((b) => focusAreas.find((f) => f.id === b.categoryId)?.name).filter(Boolean)));
 
   return (
     <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
@@ -258,7 +256,7 @@ function SaveToLibDialog({ unitId, blocks, onClose }: { unitId: string; blocks: 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '8px 14px', background: C.bg, border: 'none', borderRadius: RADII.sm }}>Abbrechen</button>
           <button disabled={!title.trim()} onClick={async () => {
-            const catId = blocks[0]?.categoryId ?? blockCategories[0]?.id;
+            const catId = blocks[0]?.categoryId ?? focusAreas[0]?.id;
             await libraryRepo.upsert({ type: 'Workout', title: title.trim(), categoryId: catId, niveau: 'Mittelstufe', durationMinutes: total, source: 'from_planning', createdFromUnitId: unitId });
             toast('In Bibliothek gespeichert'); onClose();
           }} style={{ padding: '8px 14px', background: C.success, color: '#fff', border: 'none', borderRadius: RADII.sm }}>Speichern</button>

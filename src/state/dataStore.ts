@@ -180,8 +180,17 @@ export const trainersRepo = {
 export const attendanceRepo = {
   byUnit: (unitId: string): AttendanceRecord[] => get().attendance.filter((r) => r.trainingUnitId === unitId),
   athleteRate: (athleteId: string): { total: number; present: number; rate: number } => {
-    const recs = get().attendance.filter((r) => r.athleteId === athleteId && r.present !== null);
-    const total = recs.length; const present = recs.filter((r) => r.present === true).length;
+    // Pro Tag zählt nur EINE Teilnahme – unabhängig von Anzahl/Gruppe der Einheiten an dem Tag.
+    const { attendance, units } = get();
+    const unitDate = new Map(units.map((u) => [u.id, u.date]));
+    const days = new Map<string, boolean>();
+    for (const r of attendance) {
+      if (r.athleteId !== athleteId || r.present === null) continue;
+      const date = unitDate.get(r.trainingUnitId);
+      if (!date) continue;
+      days.set(date, (days.get(date) ?? false) || r.present === true);
+    }
+    const total = days.size; const present = [...days.values()].filter(Boolean).length;
     return { total, present, rate: total ? Math.round((present / total) * 100) : 0 };
   },
   set: async (unitId: string, athleteId: string, present: boolean | null) => { await api.attendanceRepo.set(unitId, athleteId, present); await reloadSlices(['attendance']); },
@@ -236,25 +245,23 @@ type FocusDistRow = { focusAreaId: string; name: string; colorHex: string; minut
 
 export const statsRepo = {
   weekFocusDistribution: (isoYear: number, isoWeek: number): FocusDistRow[] => {
-    const { focusAreas, blockCategories, blocks, units } = get();
+    const { focusAreas, blocks, units } = get();
     const weekUnitIds = new Set(units.filter((u) => u.isoYear === isoYear && u.isoWeek === isoWeek).map((u) => u.id));
-    const catToFa = new Map(blockCategories.map((c) => [c.id, c.focusAreaId]));
     const minutes: Record<string, number> = {};
     for (const b of blocks) {
       if (!weekUnitIds.has(b.trainingUnitId)) continue;
-      const faId = catToFa.get(b.categoryId);
+      const faId = b.categoryId; // categoryId ist seit Migration 0004 direkt die Schwerpunkt-ID
       if (!faId) continue;
       minutes[faId] = (minutes[faId] ?? 0) + b.durationMinutes;
     }
     return [...focusAreas].sort(bySortOrder).map((fa) => ({ focusAreaId: fa.id, name: fa.name, colorHex: fa.colorHex, minutes: minutes[fa.id] ?? 0 }));
   },
   unitFocusDistribution: (unitId: string): FocusDistRow[] => {
-    const { focusAreas, blockCategories, blocks } = get();
-    const catToFa = new Map(blockCategories.map((c) => [c.id, c.focusAreaId]));
+    const { focusAreas, blocks } = get();
     const minutes: Record<string, number> = {};
     for (const b of blocks) {
       if (b.trainingUnitId !== unitId) continue;
-      const faId = catToFa.get(b.categoryId);
+      const faId = b.categoryId; // categoryId ist seit Migration 0004 direkt die Schwerpunkt-ID
       if (!faId) continue;
       minutes[faId] = (minutes[faId] ?? 0) + b.durationMinutes;
     }
@@ -271,13 +278,22 @@ export const statsRepo = {
     };
   },
   athleteAttendanceRates: (): { athleteId: string; total: number; present: number; rate: number }[] => {
-    const acc: Record<string, { total: number; present: number }> = {};
-    for (const r of get().attendance) {
+    // Pro Athlet zählt pro Tag nur EINE Teilnahme – egal wie viele Einheiten/Gruppen an dem Tag.
+    // An dem Tag gilt der Athlet als anwesend, wenn er in mindestens einer Einheit anwesend war.
+    const { attendance, units } = get();
+    const unitDate = new Map(units.map((u) => [u.id, u.date]));
+    const perAthlete: Record<string, Map<string, boolean>> = {};
+    for (const r of attendance) {
       if (r.present === null) continue;
-      const a = (acc[r.athleteId] ??= { total: 0, present: 0 });
-      a.total++; if (r.present === true) a.present++;
+      const date = unitDate.get(r.trainingUnitId);
+      if (!date) continue;
+      const days = (perAthlete[r.athleteId] ??= new Map());
+      days.set(date, (days.get(date) ?? false) || r.present === true);
     }
-    return Object.entries(acc).map(([athleteId, v]) => ({ athleteId, total: v.total, present: v.present, rate: v.total ? Math.round((v.present / v.total) * 100) : 0 }));
+    return Object.entries(perAthlete).map(([athleteId, days]) => {
+      const total = days.size; const present = [...days.values()].filter(Boolean).length;
+      return { athleteId, total, present, rate: total ? Math.round((present / total) * 100) : 0 };
+    });
   },
   terminReadiness: (terminId: string): { total: number; fulfilled: number; pct: number } => {
     const crit = get().terminCriteria.filter((c) => c.terminId === terminId);

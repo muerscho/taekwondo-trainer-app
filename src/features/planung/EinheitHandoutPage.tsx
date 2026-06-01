@@ -16,7 +16,7 @@ function youtubeUrl(id: string): string {
 export default function EinheitHandoutPage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { groups, blockCategories, focusAreas } = useData();
+  const { groups, focusAreas } = useData();
   const unit = id ? unitsRepo.get(id) : null;
 
   if (!unit) {
@@ -31,13 +31,12 @@ export default function EinheitHandoutPage() {
   const statusColor = unit.status === 'durchgeführt' ? C.statusDone : unit.status === 'ausgefallen' ? C.statusCancelled : C.statusPlanned;
 
   const enrichedBlocks = useMemo(() => blocks.map((b) => {
-    const cat = blockCategories.find((c) => c.id === b.categoryId);
-    const focus = focusAreas.find((f) => f.id === cat?.focusAreaId);
+    const focus = focusAreas.find((f) => f.id === b.categoryId); // categoryId = Schwerpunkt-ID (Migration 0004)
     const lib = b.sourceLibraryEntryId ? libraryRepo.get(b.sourceLibraryEntryId) : null;
     const steps = lib ? libraryRepo.steps(lib.id) : [];
     const materials = lib ? libraryRepo.materials(lib.id) : [];
-    return { block: b, category: cat, focus, library: lib, steps, materials };
-  }), [blocks, blockCategories, focusAreas]);
+    return { block: b, category: focus, focus, library: lib, steps, materials };
+  }), [blocks, focusAreas]);
 
   const aggregatedMaterials = useMemo(() => {
     const set = new Set<string>();
